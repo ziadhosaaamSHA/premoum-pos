@@ -83,6 +83,7 @@ export type Employee = {
   role: string;
   phone: string;
   status: "active" | "inactive";
+  shiftLogs: ShiftLog[];
 };
 
 export type Attendance = {
@@ -132,6 +133,56 @@ export type User = {
   status: "active" | "inactive";
 };
 
+export type Table = {
+  id: string;
+  name: string;
+  number: number;
+  status: "empty" | "occupied";
+  orderId: string | null;
+};
+
+export type Sale = {
+  id: string;
+  invoiceNo: string;
+  date: string;
+  customer: string;
+  total: number;
+  status: "paid" | "draft";
+  items: string[];
+};
+
+export type ShiftPause = {
+  start: string;
+  end?: string;
+};
+
+export type ShiftLog = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  startedAt: string;
+  endedAt: string;
+  durationMinutes: number;
+  pauses: ShiftPause[];
+};
+
+export type ActiveShift = {
+  status: "idle" | "running" | "paused";
+  employeeId: string | null;
+  startedAt?: string;
+  pauseStartedAt?: string;
+  pauses: ShiftPause[];
+};
+
+export type CurrentUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  phone: string;
+  employeeId: string | null;
+};
+
 export type OrderItem = {
   productId: string;
   qty: number;
@@ -144,6 +195,7 @@ export type Order = {
   customer: string;
   zoneId: string;
   driverId: string;
+  tableId?: string;
   createdAt: string;
   items: OrderItem[];
   discount: number;
@@ -184,4 +236,17 @@ export type AppState = {
   orders: Order[];
   cart: CartItem[];
   pos: PosState;
+  tables: Table[];
+  sales: Sale[];
+  backups: Backup[];
+  currentUser: CurrentUser;
+  activeShift: ActiveShift;
+};
+
+export type Backup = {
+  id: string;
+  createdAt: string;
+  note: string;
+  size: number;
+  data: Omit<AppState, "backups">;
 };

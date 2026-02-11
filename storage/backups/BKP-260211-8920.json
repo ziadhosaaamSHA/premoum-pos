@@ -1,0 +1,673 @@
+{
+  "version": 1,
+  "exportedAt": "2026-02-11T12:14:41.137Z",
+  "data": {
+    "categories": [
+      {
+        "id": "cmlhx9zz20011bpgrt7mrsze7",
+        "name": "إضافات",
+        "description": "إضافات خاصة"
+      },
+      {
+        "id": "cmlhx9zyv000ybpgr6kga6r75",
+        "name": "العصائر",
+        "description": "عصائر طبيعية"
+      },
+      {
+        "id": "cmlhx9zz10010bpgrcwwslfrt",
+        "name": "ساندوتشات",
+        "description": "وجبات خفيفة"
+      },
+      {
+        "id": "cmlhx9zyy000zbpgrpptm8cnf",
+        "name": "مشروبات ساخنة",
+        "description": "قهوة وشاي"
+      }
+    ],
+    "materials": [
+      {
+        "id": "cmlhx9zz40012bpgr4urv0q44",
+        "name": "برتقال",
+        "unit": "كجم",
+        "cost": 12,
+        "stock": 60,
+        "minStock": 10
+      },
+      {
+        "id": "cmlhx9zz70013bpgrc9et0tpf",
+        "name": "تفاح",
+        "unit": "كجم",
+        "cost": 15,
+        "stock": 50,
+        "minStock": 8
+      },
+      {
+        "id": "cmlhx9zzc0017bpgrg98lyxz6",
+        "name": "حليب",
+        "unit": "لتر",
+        "cost": 18,
+        "stock": 70,
+        "minStock": 10
+      },
+      {
+        "id": "cmlhx9zze0019bpgrzrnkki2q",
+        "name": "خبز",
+        "unit": "قطعة",
+        "cost": 3,
+        "stock": 200,
+        "minStock": 30
+      },
+      {
+        "id": "cmlhx9zzd0018bpgr5etzikyh",
+        "name": "دجاج",
+        "unit": "كجم",
+        "cost": 48,
+        "stock": 25,
+        "minStock": 5
+      },
+      {
+        "id": "cmlhx9zz80014bpgr3xq2laqh",
+        "name": "سكر",
+        "unit": "كجم",
+        "cost": 8,
+        "stock": 40,
+        "minStock": 5
+      },
+      {
+        "id": "cmlhx9zzb0016bpgr35eds5va",
+        "name": "قهوة",
+        "unit": "كجم",
+        "cost": 60,
+        "stock": 19.985,
+        "minStock": 4
+      },
+      {
+        "id": "cmlhx9zza0015bpgrrgmu9b7z",
+        "name": "ماء",
+        "unit": "لتر",
+        "cost": 1.2,
+        "stock": 150,
+        "minStock": 25
+      }
+    ],
+    "products": [
+      {
+        "id": "cmlhx9zzg001abpgre1jlfvux",
+        "name": "عصير برتقال",
+        "categoryId": "cmlhx9zyv000ybpgr6kga6r75",
+        "price": 35,
+        "isActive": true
+      },
+      {
+        "id": "cmlhx9zzm001ebpgrpdxboy5t",
+        "name": "عصير تفاح",
+        "categoryId": "cmlhx9zyv000ybpgr6kga6r75",
+        "price": 38,
+        "isActive": true
+      },
+      {
+        "id": "cmlhx9zzp001ibpgrjwugmth9",
+        "name": "لاتيه",
+        "categoryId": "cmlhx9zyy000zbpgrpptm8cnf",
+        "price": 45,
+        "isActive": true
+      },
+      {
+        "id": "cmlhx9zzr001lbpgr5b3p91v3",
+        "name": "إسبريسو",
+        "categoryId": "cmlhx9zyy000zbpgrpptm8cnf",
+        "price": 30,
+        "isActive": true
+      },
+      {
+        "id": "cmlhx9zzt001nbpgrxk7ilj7m",
+        "name": "ساندوتش دجاج",
+        "categoryId": "cmlhx9zz10010bpgrcwwslfrt",
+        "price": 60,
+        "isActive": true
+      },
+      {
+        "id": "cmlhxa002001qbpgryn3cu09r",
+        "name": "إضافة جبنة",
+        "categoryId": "cmlhx9zz20011bpgrt7mrsze7",
+        "price": 10,
+        "isActive": true
+      }
+    ],
+    "recipeItems": [
+      {
+        "id": "cmlhz9nyx001b7cgrgzq0fpqt",
+        "productId": "cmlhx9zzg001abpgre1jlfvux",
+        "materialId": "cmlhx9zz40012bpgr4urv0q44",
+        "quantity": 0.3
+      },
+      {
+        "id": "cmlhz9nyx001c7cgrrxz81ao3",
+        "productId": "cmlhx9zzg001abpgre1jlfvux",
+        "materialId": "cmlhx9zz80014bpgr3xq2laqh",
+        "quantity": 0.02
+      },
+      {
+        "id": "cmlhz9nyx001d7cgrhv5fompg",
+        "productId": "cmlhx9zzg001abpgre1jlfvux",
+        "materialId": "cmlhx9zza0015bpgrrgmu9b7z",
+        "quantity": 0.2
+      },
+      {
+        "id": "cmlhz9nz1001f7cgrti5755ys",
+        "productId": "cmlhx9zzm001ebpgrpdxboy5t",
+        "materialId": "cmlhx9zz70013bpgrc9et0tpf",
+        "quantity": 0.25
+      },
+      {
+        "id": "cmlhz9nz1001g7cgr8uliwnz6",
+        "productId": "cmlhx9zzm001ebpgrpdxboy5t",
+        "materialId": "cmlhx9zz80014bpgr3xq2laqh",
+        "quantity": 0.02
+      },
+      {
+        "id": "cmlhz9nz1001h7cgrg1wke81v",
+        "productId": "cmlhx9zzm001ebpgrpdxboy5t",
+        "materialId": "cmlhx9zza0015bpgrrgmu9b7z",
+        "quantity": 0.2
+      },
+      {
+        "id": "cmlhz9nz5001j7cgr0d2otp05",
+        "productId": "cmlhx9zzp001ibpgrjwugmth9",
+        "materialId": "cmlhx9zzb0016bpgr35eds5va",
+        "quantity": 0.02
+      },
+      {
+        "id": "cmlhz9nz5001k7cgr4r2bogy2",
+        "productId": "cmlhx9zzp001ibpgrjwugmth9",
+        "materialId": "cmlhx9zzc0017bpgrg98lyxz6",
+        "quantity": 0.25
+      },
+      {
+        "id": "cmlhz9nz7001m7cgr12bfs73n",
+        "productId": "cmlhx9zzr001lbpgr5b3p91v3",
+        "materialId": "cmlhx9zzb0016bpgr35eds5va",
+        "quantity": 0.015
+      },
+      {
+        "id": "cmlhz9nza001o7cgrltvbtvb2",
+        "productId": "cmlhx9zzt001nbpgrxk7ilj7m",
+        "materialId": "cmlhx9zzd0018bpgr5etzikyh",
+        "quantity": 0.15
+      },
+      {
+        "id": "cmlhz9nza001p7cgrsyjc1egc",
+        "productId": "cmlhx9zzt001nbpgrxk7ilj7m",
+        "materialId": "cmlhx9zze0019bpgrzrnkki2q",
+        "quantity": 1
+      },
+      {
+        "id": "cmlhz9nzd001r7cgre7334ffm",
+        "productId": "cmlhxa002001qbpgryn3cu09r",
+        "materialId": "cmlhx9zzc0017bpgrg98lyxz6",
+        "quantity": 0.05
+      }
+    ],
+    "suppliers": [
+      {
+        "id": "cmlhxqr8r001vsggr120iw7c5",
+        "name": "مورد التعبئة",
+        "phone": "0100000002",
+        "email": "pack@sup.local",
+        "isActive": true
+      },
+      {
+        "id": "cmlhxqr8p001usggrbkzi9bkv",
+        "name": "مورد الفاكهة",
+        "phone": "0100000001",
+        "email": "fruit@sup.local",
+        "isActive": true
+      },
+      {
+        "id": "cmlhxqr8s001wsggrpsss839q",
+        "name": "مورد القهوة",
+        "phone": "0100000003",
+        "email": "coffee@sup.local",
+        "isActive": true
+      }
+    ],
+    "purchases": [
+      {
+        "id": "cmlhxqr8x001xsggr8pq3nrjt",
+        "code": "PUR-SEED-001",
+        "supplierId": "cmlhxqr8p001usggrbkzi9bkv",
+        "date": "2026-02-11T11:17:19.857Z",
+        "total": 1250,
+        "status": "POSTED",
+        "notes": "بيانات تأسيسية"
+      }
+    ],
+    "purchaseItems": [],
+    "waste": [],
+    "zones": [
+      {
+        "id": "cmlhxa00a001tbpgru9248hgi",
+        "name": "شرق المدينة",
+        "limitKm": 8,
+        "fee": 28,
+        "minOrder": 150,
+        "status": "ACTIVE"
+      },
+      {
+        "id": "cmlhxa004001sbpgrtderxp2b",
+        "name": "وسط المدينة",
+        "limitKm": 5,
+        "fee": 20,
+        "minOrder": 120,
+        "status": "ACTIVE"
+      }
+    ],
+    "drivers": [
+      {
+        "id": "cmlhy8190001uc2grgfjqtj6v",
+        "name": "أحمد علي",
+        "phone": "0101000001",
+        "status": "متاح",
+        "activeOrders": 0
+      },
+      {
+        "id": "cmlhy8190001vc2grsp7jw6eu",
+        "name": "محمود سامي",
+        "phone": "0101000002",
+        "status": "في مهمة",
+        "activeOrders": 0
+      },
+      {
+        "id": "cmlhy8190001wc2grac1fsblx",
+        "name": "يوسف عادل",
+        "phone": "0101000003",
+        "status": "متاح",
+        "activeOrders": 0
+      }
+    ],
+    "diningTables": [
+      {
+        "id": "cmlhxa00f001ubpgrk123cbi2",
+        "name": "طاولة 1",
+        "number": 1,
+        "isOccupied": true
+      },
+      {
+        "id": "cmlhxa00f001vbpgrj0o2iblj",
+        "name": "طاولة 2",
+        "number": 2,
+        "isOccupied": true
+      },
+      {
+        "id": "cmlhxa00f001wbpgr5jgaz698",
+        "name": "طاولة 3",
+        "number": 3,
+        "isOccupied": true
+      },
+      {
+        "id": "cmlhxa00f001xbpgr39r3o21s",
+        "name": "طاولة 4",
+        "number": 4,
+        "isOccupied": true
+      },
+      {
+        "id": "cmlhxa00f001ybpgr52iqxguw",
+        "name": "طاولة 5",
+        "number": 5,
+        "isOccupied": false
+      },
+      {
+        "id": "cmlhxa00f001zbpgrh6ca3b0n",
+        "name": "طاولة 6",
+        "number": 6,
+        "isOccupied": false
+      },
+      {
+        "id": "cmlhxa00f0020bpgrp4x54jkr",
+        "name": "طاولة 7",
+        "number": 7,
+        "isOccupied": false
+      },
+      {
+        "id": "cmlhxa00f0021bpgrcz9dw8th",
+        "name": "طاولة 8",
+        "number": 8,
+        "isOccupied": false
+      },
+      {
+        "id": "cmlhxa00f0022bpgribrleepo",
+        "name": "طاولة 9",
+        "number": 9,
+        "isOccupied": false
+      },
+      {
+        "id": "cmlhxa00f0023bpgrjau9otid",
+        "name": "طاولة 10",
+        "number": 10,
+        "isOccupied": false
+      },
+      {
+        "id": "cmlhxa00f0024bpgr66je0o73",
+        "name": "طاولة 11",
+        "number": 11,
+        "isOccupied": false
+      },
+      {
+        "id": "cmlhxa00f0025bpgr3w3m71vm",
+        "name": "طاولة 12",
+        "number": 12,
+        "isOccupied": false
+      }
+    ],
+    "orders": [
+      {
+        "id": "cmlhxauta00021igrh9vjw15b",
+        "code": "ORD-260211-2409",
+        "type": "DINE_IN",
+        "status": "PREPARING",
+        "customerName": "عميل صالة",
+        "zoneId": null,
+        "driverId": null,
+        "tableId": "cmlhxa00f001ubpgrk123cbi2",
+        "discount": 0,
+        "payment": "CASH",
+        "notes": null,
+        "createdAt": "2026-02-11T11:04:57.982Z",
+        "updatedAt": "2026-02-11T11:04:57.982Z"
+      },
+      {
+        "id": "cmlhxss0h00081igr8bvgypm2",
+        "code": "ORD-260211-7119",
+        "type": "DINE_IN",
+        "status": "PREPARING",
+        "customerName": "عميل صالة",
+        "zoneId": null,
+        "driverId": null,
+        "tableId": "cmlhxa00f001vbpgrj0o2iblj",
+        "discount": 0,
+        "payment": "CASH",
+        "notes": null,
+        "createdAt": "2026-02-11T11:18:54.160Z",
+        "updatedAt": "2026-02-11T11:18:54.160Z"
+      },
+      {
+        "id": "cmlhz0xj4000k1igr6uv5rtl3",
+        "code": "ORD-260211-9933",
+        "type": "DINE_IN",
+        "status": "PREPARING",
+        "customerName": "عميل صالة",
+        "zoneId": null,
+        "driverId": null,
+        "tableId": "cmlhxa00f001wbpgr5jgaz698",
+        "discount": 0,
+        "payment": "CASH",
+        "notes": null,
+        "createdAt": "2026-02-11T11:53:14.176Z",
+        "updatedAt": "2026-02-11T11:53:14.176Z"
+      },
+      {
+        "id": "cmlhzgh1j000o1igrpd31io6b",
+        "code": "ORD-260211-8635",
+        "type": "DINE_IN",
+        "status": "PREPARING",
+        "customerName": "عميل صالة",
+        "zoneId": null,
+        "driverId": null,
+        "tableId": "cmlhxa00f001xbpgr39r3o21s",
+        "discount": 0,
+        "payment": "CASH",
+        "notes": null,
+        "createdAt": "2026-02-11T12:05:19.303Z",
+        "updatedAt": "2026-02-11T12:05:19.303Z"
+      }
+    ],
+    "orderItems": [
+      {
+        "id": "cmlhxautd00031igre8oipl9n",
+        "orderId": "cmlhxauta00021igrh9vjw15b",
+        "productId": "cmlhx9zzg001abpgre1jlfvux",
+        "quantity": 1,
+        "unitPrice": 35,
+        "totalPrice": 35
+      },
+      {
+        "id": "cmlhxautd00041igrn9wqdtxm",
+        "orderId": "cmlhxauta00021igrh9vjw15b",
+        "productId": "cmlhx9zzm001ebpgrpdxboy5t",
+        "quantity": 2,
+        "unitPrice": 38,
+        "totalPrice": 76
+      },
+      {
+        "id": "cmlhxss0i00091igr6nb44770",
+        "orderId": "cmlhxss0h00081igr8bvgypm2",
+        "productId": "cmlhx9zzg001abpgre1jlfvux",
+        "quantity": 3,
+        "unitPrice": 35,
+        "totalPrice": 105
+      },
+      {
+        "id": "cmlhz0xj6000l1igrdnp89964",
+        "orderId": "cmlhz0xj4000k1igr6uv5rtl3",
+        "productId": "cmlhx9zzg001abpgre1jlfvux",
+        "quantity": 33,
+        "unitPrice": 35,
+        "totalPrice": 1155
+      },
+      {
+        "id": "cmlhzgh1l000p1igrhdh3hrz5",
+        "orderId": "cmlhzgh1j000o1igrpd31io6b",
+        "productId": "cmlhx9zzr001lbpgr5b3p91v3",
+        "quantity": 1,
+        "unitPrice": 30,
+        "totalPrice": 30
+      }
+    ],
+    "sales": [
+      {
+        "id": "cmlhxautl00051igrca8s78ol",
+        "invoiceNo": "INV-260211-7482",
+        "orderId": "cmlhxauta00021igrh9vjw15b",
+        "date": "2026-02-11T11:04:57.993Z",
+        "customerName": "عميل صالة",
+        "total": 111,
+        "status": "PAID",
+        "notes": null
+      },
+      {
+        "id": "cmlhxss0q000a1igrfkvhsk4s",
+        "invoiceNo": "INV-260211-4808",
+        "orderId": "cmlhxss0h00081igr8bvgypm2",
+        "date": "2026-02-11T11:18:54.170Z",
+        "customerName": "عميل صالة",
+        "total": 105,
+        "status": "PAID",
+        "notes": null
+      },
+      {
+        "id": "cmlhz0xjb000m1igrl18efcl0",
+        "invoiceNo": "INV-260211-3629",
+        "orderId": "cmlhz0xj4000k1igr6uv5rtl3",
+        "date": "2026-02-11T11:53:14.183Z",
+        "customerName": "عميل صالة",
+        "total": 1155,
+        "status": "PAID",
+        "notes": null
+      },
+      {
+        "id": "cmlhzgh1t000q1igrkmzkzrcf",
+        "invoiceNo": "INV-260211-5755",
+        "orderId": "cmlhzgh1j000o1igrpd31io6b",
+        "date": "2026-02-11T12:05:19.313Z",
+        "customerName": "عميل صالة",
+        "total": 30,
+        "status": "DRAFT",
+        "notes": null
+      }
+    ],
+    "saleItems": [
+      {
+        "id": "cmlhxauto00061igr2yojebvj",
+        "saleId": "cmlhxautl00051igrca8s78ol",
+        "productId": "cmlhx9zzg001abpgre1jlfvux",
+        "name": "عصير برتقال",
+        "quantity": 1,
+        "unitPrice": 35,
+        "totalPrice": 35
+      },
+      {
+        "id": "cmlhxauto00071igrano0pmxa",
+        "saleId": "cmlhxautl00051igrca8s78ol",
+        "productId": "cmlhx9zzm001ebpgrpdxboy5t",
+        "name": "عصير تفاح",
+        "quantity": 2,
+        "unitPrice": 38,
+        "totalPrice": 76
+      },
+      {
+        "id": "cmlhxss0s000b1igren98hjqw",
+        "saleId": "cmlhxss0q000a1igrfkvhsk4s",
+        "productId": "cmlhx9zzg001abpgre1jlfvux",
+        "name": "عصير برتقال",
+        "quantity": 3,
+        "unitPrice": 35,
+        "totalPrice": 105
+      },
+      {
+        "id": "cmlhz0xjd000n1igriyklp0tq",
+        "saleId": "cmlhz0xjb000m1igrl18efcl0",
+        "productId": "cmlhx9zzg001abpgre1jlfvux",
+        "name": "عصير برتقال",
+        "quantity": 33,
+        "unitPrice": 35,
+        "totalPrice": 1155
+      },
+      {
+        "id": "cmlhzgh1v000r1igru669ye9n",
+        "saleId": "cmlhzgh1t000q1igrkmzkzrcf",
+        "productId": "cmlhx9zzr001lbpgr5b3p91v3",
+        "name": "إسبريسو",
+        "quantity": 1,
+        "unitPrice": 30,
+        "totalPrice": 30
+      }
+    ],
+    "expenses": [
+      {
+        "id": "cmlhz9nzq001u7cgrw9xob3u8",
+        "date": "2026-02-11T12:00:01.718Z",
+        "title": "إيجار",
+        "vendor": "مالك العقار",
+        "amount": 12000,
+        "notes": "إيجار شهري"
+      },
+      {
+        "id": "cmlhz9nzq001v7cgrnz9y0qbm",
+        "date": "2026-02-11T12:00:01.718Z",
+        "title": "كهرباء",
+        "vendor": "شركة الكهرباء",
+        "amount": 3200,
+        "notes": "فاتورة شهرية"
+      },
+      {
+        "id": "cmlhz9nzq001w7cgrdv3dui20",
+        "date": "2026-02-11T12:00:01.718Z",
+        "title": "صيانة معدات",
+        "vendor": "خدمات الصيانة",
+        "amount": 1800,
+        "notes": "صيانة دورية"
+      }
+    ],
+    "employees": [
+      {
+        "id": "cmlhz9nzt001x7cgrkb827ong",
+        "userId": null,
+        "name": "أحمد علي",
+        "roleTitle": "كاشير",
+        "phone": "01011000001",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "cmlhz9nzt001y7cgrfbkolwbq",
+        "userId": null,
+        "name": "سارة محمد",
+        "roleTitle": "مشرف فرع",
+        "phone": "01011000002",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "cmlhz9nzt001z7cgraxhwywye",
+        "userId": null,
+        "name": "مروان خالد",
+        "roleTitle": "طاهي",
+        "phone": "01011000003",
+        "status": "ACTIVE"
+      }
+    ],
+    "attendance": [
+      {
+        "id": "cmlhz9nzz00207cgrv86gc9sw",
+        "employeeId": "cmlhz9nzt001x7cgrkb827ong",
+        "checkIn": "2026-02-11T06:00:00.000Z",
+        "checkOut": "2026-02-11T14:05:00.000Z",
+        "status": "On Time",
+        "notes": "سجل تأسيسي"
+      },
+      {
+        "id": "cmlhz9nzz00217cgrvl1mry3l",
+        "employeeId": "cmlhz9nzt001y7cgrfbkolwbq",
+        "checkIn": "2026-02-11T06:00:00.000Z",
+        "checkOut": null,
+        "status": "In Shift",
+        "notes": null
+      }
+    ],
+    "shiftTemplates": [
+      {
+        "id": "cmlhz9o0100227cgro109wb28",
+        "name": "صباحية",
+        "startTime": "08:00",
+        "endTime": "16:00",
+        "staffCount": 4,
+        "status": "ACTIVE"
+      },
+      {
+        "id": "cmlhz9o0100237cgriuu099we",
+        "name": "مسائية",
+        "startTime": "16:00",
+        "endTime": "23:00",
+        "staffCount": 3,
+        "status": "ACTIVE"
+      }
+    ],
+    "shiftLogs": [],
+    "payroll": [
+      {
+        "id": "cmlhz9o0300247cgry5wzn5ad",
+        "employeeId": "cmlhz9nzt001x7cgrkb827ong",
+        "type": "SALARY",
+        "amount": 6500,
+        "date": "2026-02-11T12:00:01.731Z",
+        "note": "راتب شهر فبراير"
+      },
+      {
+        "id": "cmlhz9o0300257cgr2jqkcy7j",
+        "employeeId": "cmlhz9nzt001y7cgrfbkolwbq",
+        "type": "ADVANCE",
+        "amount": 1200,
+        "date": "2026-02-11T12:00:01.731Z",
+        "note": "سلفة طارئة"
+      }
+    ],
+    "leaves": [
+      {
+        "id": "cmlhz9o0500267cgr8uteruiz",
+        "employeeId": "cmlhz9nzt001y7cgrfbkolwbq",
+        "fromDate": "2026-02-14T12:00:01.733Z",
+        "toDate": "2026-02-16T12:00:01.733Z",
+        "status": "PENDING",
+        "reason": "إجازة عائلية"
+      }
+    ]
+  }
+}
