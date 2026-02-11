@@ -23,6 +23,8 @@ Important variables:
 - `SESSION_SECRET`
 - `OWNER_EMAIL` / `OWNER_PASSWORD`
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD`
+- `TRIAL_PASSWORD_RESET_ENABLED` (`true` فقط في بيئة Trial)
+- `NEXT_PUBLIC_TRIAL_PASSWORD_RESET_ENABLED` (`true` لإظهار نموذج Trial في صفحة الدخول)
 
 ## 2) Database
 
@@ -57,6 +59,7 @@ Open:
 - `PATCH /api/auth/profile`
 - `GET /api/auth/invite-details?token=...`
 - `POST /api/auth/accept-invite`
+- `POST /api/auth/trial-reset-password` (Trial only, disabled by default)
 
 ### Admin (Protected by RBAC)
 
@@ -224,4 +227,5 @@ Open:
 - Session tokens stored hashed in DB
 - API permission guards via `requireAuth`
 - Login/invite acceptance rate limiting
+- Trial password reset endpoint is disabled unless explicitly enabled by env vars
 - System roles protected from deletion

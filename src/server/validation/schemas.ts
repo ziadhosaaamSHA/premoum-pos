@@ -5,6 +5,17 @@ export const loginSchema = z.object({
   password: z.string().min(1).max(512),
 });
 
+export const trialResetPasswordSchema = z
+  .object({
+    email: z.string().email().max(255),
+    password: z.string().min(10).max(512),
+    confirmPassword: z.string().min(10).max(512),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: "Password confirmation does not match",
+    path: ["confirmPassword"],
+  });
+
 export const inviteCreateSchema = z.object({
   email: z.string().email().max(255),
   roleId: z.string().min(1).max(64),
