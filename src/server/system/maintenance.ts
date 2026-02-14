@@ -1205,7 +1205,7 @@ export async function restoreSystemSnapshot(snapshot: SystemSnapshot) {
           taxAmount: item.taxAmount,
           payment: toPaymentMethod(item.payment),
           notes: item.notes,
-          receiptSnapshot: (item.receiptSnapshot ?? null) as Prisma.InputJsonValue | null,
+          receiptSnapshot: item.receiptSnapshot ?? Prisma.DbNull,
           createdAt,
           updatedAt,
         });
