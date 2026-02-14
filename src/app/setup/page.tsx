@@ -84,10 +84,13 @@ export default function SetupPage() {
   });
 
   const requiresOwner = !setupInfo.hasOwner;
-  const stepOrder = useMemo<SetupStep[]>(
-    () => ["welcome", ...(requiresOwner ? ["owner"] : []), "branding", "taxes", "done"],
-    [requiresOwner]
-  );
+  const stepOrder = useMemo<SetupStep[]>(() => {
+    const steps: SetupStep[] = ["welcome", "branding", "taxes", "done"];
+    if (requiresOwner) {
+      steps.splice(1, 0, "owner");
+    }
+    return steps;
+  }, [requiresOwner]);
   const stepIndex = Math.max(0, stepOrder.indexOf(step)) + 1;
   const stepCount = stepOrder.length;
 
