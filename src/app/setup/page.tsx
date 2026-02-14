@@ -476,7 +476,7 @@ export default function SetupPage() {
               <span>الوصف المختصر</span>
               <input
                 type="text"
-                value={brandingForm.brandTagline}
+                value={brandingForm.brandTagline ?? ""}
                 onChange={(event) =>
                   setBrandingForm((prev) => ({ ...prev, brandTagline: event.target.value }))
                 }
@@ -487,7 +487,7 @@ export default function SetupPage() {
               <span>رابط الشعار</span>
               <input
                 type="text"
-                value={brandingForm.logoUrl}
+                value={brandingForm.logoUrl ?? ""}
                 onChange={(event) =>
                   setBrandingForm((prev) => ({ ...prev, logoUrl: event.target.value }))
                 }
