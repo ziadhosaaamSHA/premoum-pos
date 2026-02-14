@@ -8,12 +8,14 @@ type RowActionsProps = {
   onView?: () => void | Promise<void>;
   onEdit?: () => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
+  onPrint?: () => void | Promise<void>;
   disableEdit?: boolean;
   disableDelete?: boolean;
   confirmDelete?: boolean;
   confirmDeleteText?: string;
   viewMessage?: string;
   editMessage?: string;
+  printMessage?: string;
   deleteMessage?: string;
 };
 
@@ -21,12 +23,14 @@ export default function RowActions({
   onView,
   onEdit,
   onDelete,
+  onPrint,
   disableEdit,
   disableDelete,
   confirmDelete = true,
   confirmDeleteText = "هل أنت متأكد من تنفيذ هذا الإجراء؟",
   viewMessage = "تم فتح تفاصيل السجل",
   editMessage = "تم فتح وضع التعديل",
+  printMessage = "تم فتح الطباعة",
   deleteMessage,
 }: RowActionsProps) {
   const { pushToast } = useToast();
@@ -57,6 +61,13 @@ export default function RowActions({
       .catch(() => pushToast("تعذر تنفيذ الإجراء", "error"));
   };
 
+  const handlePrint = () => {
+    if (!onPrint) return;
+    void Promise.resolve(onPrint())
+      .then(() => pushToast(printMessage, "info"))
+      .catch(() => pushToast("تعذر فتح الطباعة", "error"));
+  };
+
   return (
     <>
       <div className="table-actions">
@@ -68,6 +79,11 @@ export default function RowActions({
         {onEdit && (
           <button className="action-btn edit" type="button" onClick={handleEdit} disabled={disableEdit} title="تعديل">
             <i className="bx bx-edit"></i>
+          </button>
+        )}
+        {onPrint && (
+          <button className="action-btn print" type="button" onClick={handlePrint} title="طباعة">
+            <i className="bx bx-printer"></i>
           </button>
         )}
         {onDelete && (

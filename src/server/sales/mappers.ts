@@ -1,4 +1,4 @@
-import { SaleStatus } from "@prisma/client";
+import { Prisma, SaleStatus } from "@prisma/client";
 import { generateCode } from "@/server/pos/mappers";
 
 const saleStatusToUi: Record<SaleStatus, "draft" | "paid" | "void"> = {
@@ -29,6 +29,11 @@ type SaleRow = {
   status: SaleStatus;
   notes: string | null;
   orderId: string | null;
+  order: {
+    id: string;
+    code: string;
+    receiptSnapshot: Prisma.JsonValue | null;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
   items: Array<{
@@ -58,6 +63,8 @@ export function mapSale(row: SaleRow) {
     })),
     notes: row.notes,
     orderId: row.orderId,
+    orderCode: row.order?.code || null,
+    orderReceipt: row.order?.receiptSnapshot ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

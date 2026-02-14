@@ -237,6 +237,13 @@ export default function ProductsPage() {
     [recipeForm]
   );
 
+  const recipeEstimatedCost = useMemo(() => {
+    return recipeForm.reduce((sum, line) => {
+      const material = materials.find((entry) => entry.id === line.materialId);
+      return sum + (material ? material.cost * line.quantity : 0);
+    }, 0);
+  }, [materials, recipeForm]);
+
   const submitProduct = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!productModal) return;
@@ -684,19 +691,29 @@ export default function ProductsPage() {
             {recipeForm.length === 0 ? (
               <p className="hint">لا توجد مكونات. يمكنك الحفظ بدون وصفة.</p>
             ) : (
-              <div className="role-permissions-grid" style={{ gridTemplateColumns: "1fr" }}>
-                {recipeForm.map((line, index) => (
-                  <div key={`${line.materialId}-${index}`} className="radio-card">
-                    <div style={{ display: "grid", gap: 8, width: "100%" }}>
+              <div className="recipe-editor">
+                <div className="recipe-header">
+                  <span>المادة</span>
+                  <span>الكمية</span>
+                  <span>الوحدة</span>
+                  <span>التكلفة</span>
+                  <span>إجراء</span>
+                </div>
+                {recipeForm.map((line, index) => {
+                  const material = materials.find((entry) => entry.id === line.materialId);
+                  const unit = material?.unit || "—";
+                  const lineCost = material ? material.cost * line.quantity : 0;
+                  return (
+                    <div key={`${line.materialId}-${index}`} className="recipe-row">
                       <select
                         value={line.materialId}
                         onChange={(event) =>
                           updateRecipeLine(index, { materialId: event.target.value })
                         }
                       >
-                        {materials.map((material) => (
-                          <option key={material.id} value={material.id}>
-                            {material.name}
+                        {materials.map((materialOption) => (
+                          <option key={materialOption.id} value={materialOption.id}>
+                            {materialOption.name}
                           </option>
                         ))}
                       </select>
@@ -709,12 +726,18 @@ export default function ProductsPage() {
                           updateRecipeLine(index, { quantity: Number(event.target.value || 0) })
                         }
                       />
+                      <span className="recipe-unit">{unit}</span>
+                      <span className="recipe-cost">{money(lineCost)}</span>
+                      <button className="danger-btn" type="button" onClick={() => removeRecipeLine(index)}>
+                        <i className="bx bx-trash"></i>
+                      </button>
                     </div>
-                    <button className="danger-btn" type="button" onClick={() => removeRecipeLine(index)}>
-                      <i className="bx bx-trash"></i>
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
+                <div className="recipe-summary">
+                  <span>إجمالي تكلفة الوصفة</span>
+                  <strong>{money(recipeEstimatedCost)}</strong>
+                </div>
               </div>
             )}
 

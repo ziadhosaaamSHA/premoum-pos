@@ -9,7 +9,7 @@ export async function PATCH(request: NextRequest) {
     const auth = await requireAuth(request);
     const payload = await readJson(request, profileUpdateSchema);
 
-    if (payload.fullName === undefined && payload.phone === undefined) {
+    if (payload.fullName === undefined && payload.phone === undefined && payload.avatarUrl === undefined) {
       throw new HttpError(400, "missing_fields", "No profile fields provided");
     }
 
@@ -18,6 +18,7 @@ export async function PATCH(request: NextRequest) {
       data: {
         fullName: payload.fullName?.trim(),
         phone: payload.phone === undefined ? undefined : payload.phone,
+        avatarUrl: payload.avatarUrl === undefined ? undefined : payload.avatarUrl,
       },
     });
 
@@ -27,6 +28,7 @@ export async function PATCH(request: NextRequest) {
         email: updated.email,
         fullName: updated.fullName,
         phone: updated.phone,
+        avatarUrl: updated.avatarUrl,
         status: updated.status,
         isOwner: updated.isOwner,
         roles: auth.user.roles,

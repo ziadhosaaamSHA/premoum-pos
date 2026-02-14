@@ -36,9 +36,14 @@ export async function GET(
     let summary: ReturnType<typeof summarizeSnapshot> | null = null;
 
     try {
-      const { content } = await readBackupFile(backup.reference);
-      const parsed = parseSystemSnapshot(JSON.parse(content));
-      summary = parsed ? summarizeSnapshot(parsed) : null;
+      if (backup.payload) {
+        const parsed = parseSystemSnapshot(backup.payload);
+        summary = parsed ? summarizeSnapshot(parsed) : null;
+      } else {
+        const { content } = await readBackupFile(backup.reference);
+        const parsed = parseSystemSnapshot(JSON.parse(content));
+        summary = parsed ? summarizeSnapshot(parsed) : null;
+      }
     } catch {
       summary = null;
     }

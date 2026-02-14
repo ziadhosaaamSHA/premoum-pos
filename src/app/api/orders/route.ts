@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { OrderStatus, OrderType } from "@prisma/client";
+import { OrderStatus, OrderType, Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { requireAuth } from "@/server/auth/guards";
 import { HttpError, jsonError, jsonOk, readJson } from "@/server/http";
@@ -10,7 +10,9 @@ import {
   toOrderType,
   toPaymentMethod,
 } from "@/server/pos/mappers";
+import { fetchBranding } from "@/server/settings/branding";
 import { orderCreateSchema } from "@/server/validation/schemas";
+import { buildReceiptSnapshot } from "@/lib/receipt";
 
 const orderInclude = {
   items: {
@@ -75,10 +77,12 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request, { anyPermission: ["orders:manage", "pos:use"] });
     const payload = await readJson(request, orderCreateSchema);
+    const branding = await fetchBranding(db);
 
     const orderType = toOrderType(payload.type);
     const payment = toPaymentMethod(payload.payment);
     const discount = Number(payload.discount || 0);
+    const taxRate = Math.max(0, Number(payload.taxRate || 0));
 
     if (orderType === OrderType.DELIVERY && !payload.zoneId) {
       throw new HttpError(400, "zone_required", "Delivery order requires a zone");
@@ -125,6 +129,10 @@ export async function POST(request: NextRequest) {
           name: product.name,
         };
       });
+
+      const subtotal = itemLines.reduce((sum, item) => sum + item.totalPrice, 0);
+      const taxableBase = Math.max(0, subtotal - discount);
+      const taxAmount = taxableBase * (taxRate / 100);
 
       const materialUsage = new Map<string, number>();
       itemLines.forEach((item) => {
@@ -202,6 +210,8 @@ export async function POST(request: NextRequest) {
           driverId: payload.driverId || null,
           tableId,
           discount,
+          taxRate,
+          taxAmount,
           payment,
           notes: payload.notes || null,
           createdById: auth.user.id,
@@ -226,7 +236,39 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      return createdOrder;
+      const mapped = mapOrder(createdOrder);
+      const receiptSnapshot = buildReceiptSnapshot({
+        code: mapped.code,
+        createdAt: mapped.createdAt,
+        customerName: mapped.customer,
+        orderType: mapped.type,
+        payment: mapped.payment,
+        brandName: branding.brandName,
+        brandTagline: branding.brandTagline || undefined,
+        tableName: mapped.tableName,
+        tableNumber: mapped.tableNumber ?? null,
+        zoneName: mapped.zoneName,
+        items: mapped.items.map((item) => ({
+          name: item.name,
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+        })),
+        discount: mapped.discount,
+        taxRate: mapped.taxRate,
+        taxAmount: mapped.taxAmount,
+        deliveryFee: mapped.deliveryFee,
+        total: mapped.total,
+        notes: mapped.notes,
+      });
+
+      const updatedOrder = await tx.order.update({
+        where: { id: createdOrder.id },
+        data: { receiptSnapshot: receiptSnapshot as Prisma.InputJsonValue },
+        include: orderInclude,
+      });
+
+      return updatedOrder;
     });
 
     return jsonOk({ order: mapOrder(order) }, { status: 201 });

@@ -30,7 +30,7 @@ export default function Modal({ id, title, children, footer }: ModalProps) {
           </button>
         </div>
         <p className="hint modal-hint">معلومة: تحقق من المدخلات قبل حفظ أي تغيير.</p>
-        {children}
+        <div className="modal-content">{children}</div>
         {footer ? <div className="modal-footer">{footer}</div> : null}
       </div>
     </div>

@@ -2,9 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
+import { useAuth } from "@/context/AuthContext";
 import { ApiError, apiRequest } from "@/lib/api";
 import { money, todayISO } from "@/lib/format";
+import { ReceiptSnapshot } from "@/lib/receipt";
 import InlineModal from "@/components/ui/InlineModal";
+import ReceiptPreview from "@/components/ui/ReceiptPreview";
+import ReceiptModal from "@/components/ui/ReceiptModal";
 import RowActions from "@/components/ui/RowActions";
 import TableDataActions from "@/components/ui/TableDataActions";
 
@@ -27,12 +31,15 @@ type SaleRow = {
   itemRows: SaleItemRow[];
   notes: string | null;
   orderId: string | null;
+  orderCode: string | null;
+  orderReceipt: ReceiptSnapshot | null;
   createdAt: string;
   updatedAt: string;
 };
 
 export default function SalesPage() {
   const { pushToast } = useToast();
+  const { hasPermission } = useAuth();
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [searchSales, setSearchSales] = useState("");
@@ -43,6 +50,7 @@ export default function SalesPage() {
   const [editSaleId, setEditSaleId] = useState<string | null>(null);
   const [approveSaleId, setApproveSaleId] = useState<string | null>(null);
   const [deleteSaleId, setDeleteSaleId] = useState<string | null>(null);
+  const [receiptSaleId, setReceiptSaleId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [saleForm, setSaleForm] = useState({
@@ -51,6 +59,11 @@ export default function SalesPage() {
     total: 0,
     itemsText: "",
   });
+
+  const canCreateSales = hasPermission("sales:manage");
+  const canEditSales = hasPermission("sales:manage") || hasPermission("sales:edit");
+  const canDeleteSales = hasPermission("sales:manage") || hasPermission("sales:delete");
+  const canApproveSales = hasPermission("sales:manage") || hasPermission("sales:approve");
 
   const handleError = useCallback(
     (error: unknown, fallback: string) => {
@@ -106,6 +119,10 @@ export default function SalesPage() {
     ? sales.find((sale) => sale.id === selectedSaleId) || null
     : null;
 
+  const receiptSale = receiptSaleId
+    ? sales.find((sale) => sale.id === receiptSaleId) || null
+    : null;
+
   const startEdit = (saleId: string) => {
     const sale = sales.find((item) => item.id === saleId);
     if (!sale) return;
@@ -132,6 +149,7 @@ export default function SalesPage() {
 
   const handleCreateSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!canCreateSales) return;
     setSubmitting(true);
     try {
       await apiRequest<{ sale: SaleRow }>("/api/sales", {
@@ -158,6 +176,7 @@ export default function SalesPage() {
   const handleEditSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editSaleId) return;
+    if (!canEditSales) return;
 
     setSubmitting(true);
     try {
@@ -182,6 +201,7 @@ export default function SalesPage() {
   };
 
   const approveSale = async (saleId: string) => {
+    if (!canApproveSales) return;
     setSubmitting(true);
     try {
       await apiRequest<{ sale: SaleRow }>(`/api/sales/${saleId}`, {
@@ -199,6 +219,7 @@ export default function SalesPage() {
   };
 
   const removeSale = async (saleId: string) => {
+    if (!canDeleteSales) return;
     setSubmitting(true);
     try {
       await apiRequest<{ deleted: boolean }>(`/api/sales/${saleId}`, {
@@ -253,17 +274,19 @@ export default function SalesPage() {
               <option value="paid">مدفوع</option>
               <option value="draft">مسودة</option>
             </select>
-            <button
-              className="primary"
-              type="button"
-              onClick={() => {
-                resetSaleForm();
-                setCreateOpen(true);
-              }}
-            >
-              <i className="bx bx-plus"></i>
-              إضافة فاتورة
-            </button>
+            {canCreateSales && (
+              <button
+                className="primary"
+                type="button"
+                onClick={() => {
+                  resetSaleForm();
+                  setCreateOpen(true);
+                }}
+              >
+                <i className="bx bx-plus"></i>
+                إضافة فاتورة
+              </button>
+            )}
             <TableDataActions
               rows={filteredSales}
               columns={[
@@ -313,7 +336,7 @@ export default function SalesPage() {
                     </td>
                     <td>
                       <div className="table-actions">
-                        {sale.status === "draft" && !sale.orderId ? (
+                        {sale.status === "draft" && !sale.orderId && canApproveSales ? (
                           <button
                             className="action-btn approve"
                             type="button"
@@ -325,10 +348,12 @@ export default function SalesPage() {
                         ) : null}
                         <RowActions
                           onView={() => setSelectedSaleId(sale.id)}
-                          onEdit={() => startEdit(sale.id)}
-                          onDelete={() => setDeleteSaleId(sale.id)}
-                          disableEdit={sale.status !== "draft" || Boolean(sale.orderId)}
-                          disableDelete={sale.status !== "draft" || Boolean(sale.orderId)}
+                          onEdit={canEditSales ? () => startEdit(sale.id) : undefined}
+                          onDelete={canDeleteSales ? () => setDeleteSaleId(sale.id) : undefined}
+                          onPrint={sale.orderReceipt ? () => setReceiptSaleId(sale.id) : undefined}
+                          printMessage="تم فتح إيصال الطلب"
+                          disableEdit={!canEditSales || sale.status !== "draft" || Boolean(sale.orderId)}
+                          disableDelete={!canDeleteSales || sale.status !== "draft" || Boolean(sale.orderId)}
                           confirmDelete={false}
                         />
                       </div>
@@ -407,10 +432,28 @@ export default function SalesPage() {
               {selectedSale.orderId ? (
                 <div className="row-line">
                   <span>مصدر الفاتورة</span>
-                  <strong>مرتبطة بطلب ({selectedSale.orderId})</strong>
+                  <strong>
+                    مرتبطة بطلب {selectedSale.orderCode ? `(${selectedSale.orderCode})` : `(${selectedSale.orderId})`}
+                  </strong>
                 </div>
               ) : null}
             </div>
+            {selectedSale.orderReceipt ? (
+              <>
+                <div style={{ marginTop: 12 }}>
+                  <ReceiptPreview receipt={selectedSale.orderReceipt} />
+                </div>
+                <div className="row-actions" style={{ marginTop: 12 }}>
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => setReceiptSaleId(selectedSale.id)}
+                  >
+                    طباعة إيصال الطلب
+                  </button>
+                </div>
+              </>
+            ) : null}
             <div className="list" style={{ marginTop: 12 }}>
               {selectedSale.itemRows.map((item) => (
                 <div key={item.id} className="row-line">
@@ -513,6 +556,12 @@ export default function SalesPage() {
           <p>يمكن حذف الفواتير المسودة اليدوية فقط.</p>
         </div>
       </InlineModal>
+
+      <ReceiptModal
+        open={Boolean(receiptSale)}
+        receipt={receiptSale?.orderReceipt ?? null}
+        onClose={() => setReceiptSaleId(null)}
+      />
     </section>
   );
 }

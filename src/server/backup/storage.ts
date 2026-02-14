@@ -2,7 +2,11 @@ import path from "path";
 import { promises as fs } from "fs";
 import { HttpError } from "@/server/http";
 
-const BACKUP_DIR = process.env.BACKUP_STORAGE_DIR || path.join(process.cwd(), "storage", "backups");
+const DEFAULT_BACKUP_DIR = process.env.VERCEL
+  ? path.join("/tmp", "backups")
+  : path.join(process.cwd(), "storage", "backups");
+
+const BACKUP_DIR = process.env.BACKUP_STORAGE_DIR || DEFAULT_BACKUP_DIR;
 
 function assertReference(reference: string) {
   if (!/^[A-Za-z0-9_-]+$/.test(reference)) {

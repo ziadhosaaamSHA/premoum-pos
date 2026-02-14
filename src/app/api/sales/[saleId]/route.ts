@@ -17,6 +17,13 @@ const saleInclude = {
       totalPrice: true,
     },
   },
+  order: {
+    select: {
+      id: true,
+      code: true,
+      receiptSnapshot: true,
+    },
+  },
 } as const;
 
 function hasPermission(auth: { user: { isOwner: boolean; permissions: string[] } }, code: string) {
@@ -50,7 +57,7 @@ export async function PATCH(
   context: { params: Promise<{ saleId: string }> }
 ) {
   try {
-    const auth = await requireAuth(request, { anyPermission: ["sales:manage", "sales:approve"] });
+    const auth = await requireAuth(request, { anyPermission: ["sales:manage", "sales:approve", "sales:edit"] });
     const { saleId } = await context.params;
     const payload = await readJson(request, salesUpdateSchema);
 
@@ -92,7 +99,7 @@ export async function PATCH(
       return jsonOk({ sale: mapSale(approved) });
     }
 
-    if (!hasPermission(auth, "sales:manage")) {
+    if (!hasPermission(auth, "sales:manage") && !hasPermission(auth, "sales:edit")) {
       throw new HttpError(403, "forbidden", "Missing permission to edit invoices");
     }
     if (sale.status !== SaleStatus.DRAFT) {
@@ -151,7 +158,7 @@ export async function DELETE(
   context: { params: Promise<{ saleId: string }> }
 ) {
   try {
-    await requireAuth(request, { allPermissions: ["sales:manage"] });
+    await requireAuth(request, { anyPermission: ["sales:manage", "sales:delete"] });
     const { saleId } = await context.params;
 
     const sale = await db.sale.findUnique({

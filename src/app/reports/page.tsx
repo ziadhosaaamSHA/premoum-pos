@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
 import { ApiError, apiRequest } from "@/lib/api";
-import { money, num2 } from "@/lib/format";
+import { money, num2, translateStatus } from "@/lib/format";
 import InlineModal from "@/components/ui/InlineModal";
 import RowActions from "@/components/ui/RowActions";
 import TableDataActions from "@/components/ui/TableDataActions";
@@ -41,17 +41,46 @@ type ShiftRow = {
   profit: number;
 };
 
+type PurchaseRow = {
+  id: string;
+  code: string;
+  date: string;
+  supplierId: string;
+  supplier: string;
+  materialId: string | null;
+  material: string;
+  quantity: number;
+  unitCost: number;
+  total: number;
+  status: "posted" | "draft" | "cancelled";
+  notes: string | null;
+};
+
+type WasteRow = {
+  id: string;
+  date: string;
+  materialId: string;
+  material: string;
+  unit: string;
+  qty: number;
+  reason: string;
+  cost: number;
+};
+
 type ReportsPayload = {
   insights: {
     todaySales: number;
     monthSales: number;
     wasteCost: number;
+    purchasesTotal: number;
     inventoryValue: number;
   };
   dailyRows: DailyRow[];
   monthlyRows: MonthlyRow[];
   profitRows: ProfitRow[];
   shiftRows: ShiftRow[];
+  purchases: PurchaseRow[];
+  wasteRows: WasteRow[];
 };
 
 export default function ReportsPage() {
@@ -69,6 +98,10 @@ export default function ReportsPage() {
   const [profitMarginFilter, setProfitMarginFilter] = useState("");
   const [shiftsSearch, setShiftsSearch] = useState("");
   const [shiftsFilter, setShiftsFilter] = useState("");
+  const [purchaseSearch, setPurchaseSearch] = useState("");
+  const [purchaseStatusFilter, setPurchaseStatusFilter] = useState("");
+  const [wasteSearch, setWasteSearch] = useState("");
+  const [wasteCostFilter, setWasteCostFilter] = useState("");
 
   const [reportModal, setReportModal] = useState<ReportModal>(null);
 
@@ -154,6 +187,37 @@ export default function ReportsPage() {
     });
   }, [data?.shiftRows, shiftsFilter, shiftsSearch]);
 
+  const filteredPurchases = useMemo(() => {
+    const rows = data?.purchases || [];
+    const q = purchaseSearch.trim().toLowerCase();
+
+    return rows.filter((row) => {
+      const matchesSearch =
+        !q ||
+        row.code.toLowerCase().includes(q) ||
+        row.supplier.toLowerCase().includes(q) ||
+        row.material.toLowerCase().includes(q) ||
+        row.date.includes(q);
+      const matchesStatus = !purchaseStatusFilter || row.status === purchaseStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [data?.purchases, purchaseSearch, purchaseStatusFilter]);
+
+  const filteredWaste = useMemo(() => {
+    const rows = data?.wasteRows || [];
+    const q = wasteSearch.trim().toLowerCase();
+
+    return rows.filter((row) => {
+      const matchesSearch =
+        !q || row.material.toLowerCase().includes(q) || row.reason.toLowerCase().includes(q);
+      const matchesCost =
+        !wasteCostFilter ||
+        (wasteCostFilter === "low" && row.cost < 100) ||
+        (wasteCostFilter === "high" && row.cost >= 100);
+      return matchesSearch && matchesCost;
+    });
+  }, [data?.wasteRows, wasteCostFilter, wasteSearch]);
+
   return (
     <section className="page active">
       <div className="report-grid">
@@ -168,6 +232,10 @@ export default function ReportsPage() {
         <div className="report-card">
           <h3>الهدر</h3>
           <p>{money(data?.insights.wasteCost || 0)}</p>
+        </div>
+        <div className="report-card">
+          <h3>مشتريات المخزون</h3>
+          <p>{money(data?.insights.purchasesTotal || 0)}</p>
         </div>
         <div className="report-card">
           <h3>تقييم المخزون</h3>
@@ -191,6 +259,14 @@ export default function ReportsPage() {
         <button className={`subtab ${activeTab === "shifts" ? "active" : ""}`} onClick={() => setActiveTab("shifts")} type="button">
           <i className="bx bx-time"></i>
           تقارير الورديات
+        </button>
+        <button className={`subtab ${activeTab === "purchases" ? "active" : ""}`} onClick={() => setActiveTab("purchases")} type="button">
+          <i className="bx bx-package"></i>
+          مشتريات المخزون
+        </button>
+        <button className={`subtab ${activeTab === "waste" ? "active" : ""}`} onClick={() => setActiveTab("waste")} type="button">
+          <i className="bx bx-recycle"></i>
+          الهدر
         </button>
       </div>
 
@@ -503,6 +579,161 @@ export default function ReportsPage() {
                           }
                         />
                       </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "purchases" && (
+        <div className="subtab-panel active">
+          <div className="card wide">
+            <div className="section-header-actions">
+              <h2>مشتريات المخزون</h2>
+              <div className="table-toolbar">
+                <div className="search-bar-wrapper">
+                  <i className="bx bx-search"></i>
+                  <input
+                    type="text"
+                    className="table-search"
+                    placeholder="بحث في المشتريات..."
+                    value={purchaseSearch}
+                    onChange={(event) => setPurchaseSearch(event.target.value)}
+                  />
+                </div>
+                <select
+                  className="select-filter"
+                  value={purchaseStatusFilter}
+                  onChange={(event) => setPurchaseStatusFilter(event.target.value)}
+                >
+                  <option value="">كل الحالات</option>
+                  <option value="posted">مرحلة</option>
+                  <option value="draft">مسودة</option>
+                  <option value="cancelled">ملغية</option>
+                </select>
+                <TableDataActions
+                  rows={filteredPurchases}
+                  columns={[
+                    { label: "الكود", value: (row) => row.code },
+                    { label: "المورد", value: (row) => row.supplier },
+                    { label: "الخامة", value: (row) => row.material },
+                    { label: "الكمية", value: (row) => row.quantity },
+                    { label: "الإجمالي", value: (row) => row.total },
+                    { label: "الحالة", value: (row) => translateStatus(row.status) },
+                    { label: "التاريخ", value: (row) => row.date },
+                  ]}
+                  fileName="reports-purchases"
+                  printTitle="مشتريات المخزون"
+                  tableId="reports-purchases-table"
+                />
+              </div>
+            </div>
+            <table id="reports-purchases-table">
+              <thead>
+                <tr>
+                  <th>الكود</th>
+                  <th>المورد</th>
+                  <th>الخامة</th>
+                  <th>الكمية</th>
+                  <th>الإجمالي</th>
+                  <th>الحالة</th>
+                  <th>التاريخ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPurchases.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>لا توجد بيانات</td>
+                  </tr>
+                ) : (
+                  filteredPurchases.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.code}</td>
+                      <td>{row.supplier}</td>
+                      <td>{row.material}</td>
+                      <td>{num2(row.quantity)}</td>
+                      <td>{money(row.total)}</td>
+                      <td>
+                        <span className={`badge ${row.status === "posted" ? "ok" : row.status === "draft" ? "warn" : "danger"}`}>
+                          {translateStatus(row.status)}
+                        </span>
+                      </td>
+                      <td>{row.date}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "waste" && (
+        <div className="subtab-panel active">
+          <div className="card wide">
+            <div className="section-header-actions">
+              <h2>الهدر</h2>
+              <div className="table-toolbar">
+                <div className="search-bar-wrapper">
+                  <i className="bx bx-search"></i>
+                  <input
+                    type="text"
+                    className="table-search"
+                    placeholder="بحث في الهدر..."
+                    value={wasteSearch}
+                    onChange={(event) => setWasteSearch(event.target.value)}
+                  />
+                </div>
+                <select
+                  className="select-filter"
+                  value={wasteCostFilter}
+                  onChange={(event) => setWasteCostFilter(event.target.value)}
+                >
+                  <option value="">كل القيم</option>
+                  <option value="low">أقل من 100</option>
+                  <option value="high">100 فأكثر</option>
+                </select>
+                <TableDataActions
+                  rows={filteredWaste}
+                  columns={[
+                    { label: "التاريخ", value: (row) => row.date },
+                    { label: "الخامة", value: (row) => row.material },
+                    { label: "الكمية", value: (row) => row.qty },
+                    { label: "التكلفة", value: (row) => row.cost },
+                    { label: "السبب", value: (row) => row.reason },
+                  ]}
+                  fileName="reports-waste"
+                  printTitle="الهدر"
+                  tableId="reports-waste-table"
+                />
+              </div>
+            </div>
+            <table id="reports-waste-table">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>الخامة</th>
+                  <th>الكمية</th>
+                  <th>التكلفة</th>
+                  <th>السبب</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredWaste.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>لا توجد بيانات</td>
+                  </tr>
+                ) : (
+                  filteredWaste.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.date}</td>
+                      <td>{row.material}</td>
+                      <td>{num2(row.qty)} {row.unit}</td>
+                      <td>{money(row.cost)}</td>
+                      <td>{row.reason}</td>
                     </tr>
                   ))
                 )}

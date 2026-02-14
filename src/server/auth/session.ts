@@ -35,6 +35,7 @@ export type AuthUser = {
   email: string;
   fullName: string;
   phone: string | null;
+  avatarUrl: string | null;
   status: UserStatus;
   isOwner: boolean;
   roles: string[];
@@ -46,6 +47,7 @@ function mapUser(user: {
   email: string;
   fullName: string;
   phone: string | null;
+  avatarUrl: string | null;
   status: UserStatus;
   isOwner: boolean;
   userRoles: Array<{
@@ -64,6 +66,7 @@ function mapUser(user: {
     email: user.email,
     fullName: user.fullName,
     phone: user.phone,
+    avatarUrl: user.avatarUrl,
     status: user.status,
     isOwner: user.isOwner,
     roles,

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useBranding } from "@/context/BrandingContext";
 
 type InviteDetails = {
   email: string;
@@ -16,6 +17,7 @@ export default function AcceptInviteClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh } = useAuth();
+  const { branding } = useBranding();
   const token = searchParams.get("token") || "";
 
   const [invite, setInvite] = useState<InviteDetails | null>(null);
@@ -91,8 +93,8 @@ export default function AcceptInviteClient() {
   return (
     <section className="auth-card">
       <div className="auth-brand">
-        <h1>تفعيل حساب جديد</h1>
-        <p>أكمل بياناتك لإنهاء التسجيل من رابط الدعوة</p>
+        <h1>{branding.brandName}</h1>
+        <p>{branding.brandTagline || "أكمل بياناتك لإنهاء التسجيل من رابط الدعوة"}</p>
       </div>
 
       {invite ? (

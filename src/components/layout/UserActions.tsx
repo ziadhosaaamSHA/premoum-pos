@@ -1,45 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAppState } from "@/context/AppStateContext";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
-import { money } from "@/lib/format";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useNotifications } from "@/hooks/useNotifications";
+import { useTheme } from "@/context/ThemeContext";
 
 export default function UserActions() {
   const router = useRouter();
-  const { state } = useAppState();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { pushToast } = useToast();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const {
+    alertsLoading,
+    lastUpdatedAt,
+    visibleAlerts,
+    unreadCount,
+    refresh,
+    markAllViewed,
+    clearAll,
+    dismiss,
+  } = useNotifications({ stream: true, pollIntervalMs: 60_000 });
   const notifRef = useRef<HTMLDivElement | null>(null);
   const profileRef = useRef<HTMLDivElement | null>(null);
-
-  const alerts = useMemo(() => {
-    const items: { type: string; title: string; message: string }[] = [];
-    state.materials.forEach((material) => {
-      if (material.stock <= material.minStock) {
-        items.push({
-          type: "low_stock",
-          title: "مخزون منخفض",
-          message: `المادة ${material.name} أقل من الحد الأدنى.`,
-        });
-      }
-    });
-    if (state.waste.length > 0) {
-      const latest = state.waste[0];
-      items.push({
-        type: "warning",
-        title: "هدر اليوم",
-        message: `تم تسجيل هدر ${latest.material} بقيمة ${money(latest.cost)}.`,
-      });
-    }
-    return items;
-  }, [state.materials, state.waste]);
 
   const roleLabel = useMemo(() => {
     if (!user) return "مستخدم";
@@ -75,6 +63,37 @@ export default function UserActions() {
     };
   }, []);
 
+  useEffect(() => {
+    if (notifOpen) {
+      void refresh(true);
+    }
+  }, [notifOpen, refresh]);
+
+  const formatAlertTime = useCallback((value: string) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString("ar-EG", {
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, []);
+
+  const formatTimeShort = useCallback((value: string | null) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
+  }, []);
+
+  const alertIcon = useCallback((type: "low_stock" | "warning" | "info") => {
+    if (type === "low_stock") return "bx bx-line-chart-down";
+    if (type === "warning") return "bx bx-error";
+    return "bx bx-info-circle";
+  }, []);
+
   return (
     <>
       <div className="user-actions" id="userActions">
@@ -89,28 +108,86 @@ export default function UserActions() {
             type="button"
           >
             <i className="bx bx-bell"></i>
-            <span className={`notif-dot ${alerts.length > 0 ? "active" : ""}`}></span>
+            {unreadCount > 0 ? (
+              <span className="notif-count">{unreadCount > 9 ? "9+" : unreadCount}</span>
+            ) : null}
           </button>
           <div className="notif-dropdown">
             <div className="notif-header">
               <h4>التنبيهات</h4>
+              <div className="notif-actions">
+                <button
+                  className="notif-action-btn"
+                  type="button"
+                  onClick={() => {
+                    router.push("/notifications");
+                    setNotifOpen(false);
+                  }}
+                >
+                  عرض الكل
+                </button>
+                <button
+                  className="notif-action-btn"
+                  type="button"
+                  onClick={() => void refresh(true)}
+                  disabled={alertsLoading}
+                >
+                  تحديث
+                </button>
+                <button
+                  className="notif-action-btn"
+                  type="button"
+                  onClick={markAllViewed}
+                  disabled={unreadCount === 0}
+                >
+                  تعليم كمقروء
+                </button>
+                <button
+                  className="notif-action-btn danger"
+                  type="button"
+                  onClick={clearAll}
+                  disabled={visibleAlerts.length === 0}
+                >
+                  مسح الكل
+                </button>
+              </div>
             </div>
-            <div className="alerts-grid">
-              {alerts.length === 0 ? (
-                <div className="alert-empty">لا توجد تنبيهات حالياً</div>
-              ) : (
-                alerts.map((alert, index) => (
-                  <div key={`${alert.type}-${index}`} className={`alert-card ${alert.type}`}>
-                    <div className="alert-icon">
-                      <i className="bx bx-bell"></i>
+            <div className="notif-meta">
+              {lastUpdatedAt ? `آخر تحديث ${formatTimeShort(lastUpdatedAt)}` : "—"}
+            </div>
+            <div className="alerts-scroll">
+              <div className="alerts-grid">
+                {alertsLoading ? (
+                  <div className="alert-empty">جاري تحديث التنبيهات...</div>
+                ) : visibleAlerts.length === 0 ? (
+                  <div className="alert-empty">لا توجد تنبيهات حالياً</div>
+                ) : (
+                  visibleAlerts.map((alert, index) => (
+                    <div key={`${alert.id}-${index}`} className={`alert-card ${alert.type}`}>
+                      <div className="alert-icon">
+                        <i className={alertIcon(alert.type)}></i>
+                      </div>
+                      <div className="alert-content">
+                        <div className="alert-title-row">
+                          <strong>{alert.title}</strong>
+                          {alert.createdAt ? (
+                            <span className="alert-time">{formatAlertTime(alert.createdAt)}</span>
+                          ) : null}
+                        </div>
+                        <p>{alert.message}</p>
+                      </div>
+                      <button
+                        className="alert-dismiss"
+                        type="button"
+                        title="إخفاء التنبيه"
+                        onClick={() => dismiss(alert.id)}
+                      >
+                        <i className="bx bx-x"></i>
+                      </button>
                     </div>
-                    <div className="alert-content">
-                      <strong>{alert.title}</strong>
-                      <p>{alert.message}</p>
-                    </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -124,7 +201,11 @@ export default function UserActions() {
             }}
             type="button"
           >
-            <span className="avatar">{avatarLabel}</span>
+            {user?.avatarUrl ? (
+              <img className="avatar-img" src={user.avatarUrl} alt={user.fullName || "User"} />
+            ) : (
+              <span className="avatar">{avatarLabel}</span>
+            )}
             <div className="profile-meta">
               <span className="profile-name">{user?.fullName || "مستخدم النظام"}</span>
               <span className="profile-role">{roleLabel}</span>
@@ -132,6 +213,16 @@ export default function UserActions() {
             <i className="bx bx-chevron-down"></i>
           </button>
           <div className="profile-dropdown">
+            <button
+              className="profile-item"
+              type="button"
+              onClick={() => {
+                toggleTheme();
+              }}
+            >
+              <i className={theme === "dark" ? "bx bx-sun" : "bx bx-moon"}></i>
+              {theme === "dark" ? "الوضع الفاتح" : "الوضع الداكن"}
+            </button>
             <button
               className="profile-item"
               onClick={() => {

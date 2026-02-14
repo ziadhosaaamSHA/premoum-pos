@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, PurchaseStatus } from "@prisma/client";
 import { db } from "@/server/db";
 import { requireAuth } from "@/server/auth/guards";
 import { jsonError, jsonOk } from "@/server/http";
+import { mapPurchase, mapWaste } from "@/server/inventory/mappers";
 import {
   buildProductCostMap,
   calcOrderFinancials,
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth(request, { allPermissions: ["reports:view"] });
 
-    const [products, orders, materials, waste] = await Promise.all([
+    const [products, orders, materials, waste, purchases] = await Promise.all([
       db.product.findMany({
         select: {
           id: true,
@@ -78,9 +79,35 @@ export async function GET(request: NextRequest) {
       }),
       db.waste.findMany({
         orderBy: { date: "desc" },
-        take: 90,
         select: {
+          id: true,
+          date: true,
+          quantity: true,
+          reason: true,
           cost: true,
+          material: {
+            select: {
+              id: true,
+              name: true,
+              unit: true,
+            },
+          },
+        },
+      }),
+      db.purchase.findMany({
+        orderBy: { date: "desc" },
+        include: {
+          supplier: {
+            select: { id: true, name: true },
+          },
+          items: {
+            orderBy: { id: "asc" },
+            include: {
+              material: {
+                select: { id: true, name: true },
+              },
+            },
+          },
         },
       }),
     ]);
@@ -188,18 +215,26 @@ export async function GET(request: NextRequest) {
     );
 
     const wasteCost = waste.reduce((sum, item) => sum + Number(item.cost), 0);
+    const purchaseRows = purchases.map((purchase) => mapPurchase(purchase));
+    const purchasesTotal = purchases
+      .filter((purchase) => purchase.status === PurchaseStatus.POSTED)
+      .reduce((sum, purchase) => sum + Number(purchase.total), 0);
+    const wasteRows = waste.map((item) => mapWaste(item));
 
     return jsonOk({
       insights: {
         todaySales: dailyRows[0]?.total || 0,
         monthSales,
         wasteCost,
+        purchasesTotal,
         inventoryValue,
       },
       dailyRows,
       monthlyRows,
       profitRows,
       shiftRows,
+      purchases: purchaseRows,
+      wasteRows,
     });
   } catch (error) {
     return jsonError(error);

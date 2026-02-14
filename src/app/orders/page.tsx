@@ -4,7 +4,9 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
 import { ApiError, apiRequest } from "@/lib/api";
 import { money, translateStatus } from "@/lib/format";
+import { buildReceiptSnapshot, ReceiptSnapshot } from "@/lib/receipt";
 import InlineModal from "@/components/ui/InlineModal";
+import ReceiptModal from "@/components/ui/ReceiptModal";
 import RowActions from "@/components/ui/RowActions";
 import TableDataActions from "@/components/ui/TableDataActions";
 
@@ -21,7 +23,10 @@ type OrderRow = {
   driverId: string | null;
   tableId: string | null;
   tableName: string | null;
+  tableNumber: number | null;
   discount: number;
+  taxRate: number;
+  taxAmount: number;
   payment: "cash" | "card" | "wallet" | "mixed";
   notes: string | null;
   createdAt: string;
@@ -29,6 +34,7 @@ type OrderRow = {
   subtotal: number;
   deliveryFee: number;
   total: number;
+  receiptSnapshot: ReceiptSnapshot | null;
   items: Array<{
     id: string;
     productId: string | null;
@@ -98,6 +104,7 @@ export default function OrdersPage() {
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orderDeleteId, setOrderDeleteId] = useState<string | null>(null);
+  const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
 
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [tableModalOpen, setTableModalOpen] = useState(false);
@@ -184,6 +191,37 @@ export default function OrdersPage() {
   const selectedOrder = selectedOrderId
     ? orders.find((order) => order.id === selectedOrderId) || null
     : null;
+
+  const receiptOrder = receiptOrderId
+    ? orders.find((order) => order.id === receiptOrderId) || null
+    : null;
+
+  const receiptSnapshot = useMemo(() => {
+    if (!receiptOrder) return null;
+    if (receiptOrder.receiptSnapshot) return receiptOrder.receiptSnapshot;
+    return buildReceiptSnapshot({
+      code: receiptOrder.code,
+      createdAt: receiptOrder.createdAt,
+      customerName: receiptOrder.customer,
+      orderType: receiptOrder.type,
+      payment: receiptOrder.payment,
+      tableName: receiptOrder.tableName,
+      tableNumber: receiptOrder.tableNumber ?? null,
+      zoneName: receiptOrder.zoneName,
+      items: receiptOrder.items.map((item) => ({
+        name: item.name,
+        qty: item.qty,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+      })),
+      discount: receiptOrder.discount,
+      taxRate: receiptOrder.taxRate,
+      taxAmount: receiptOrder.taxAmount,
+      deliveryFee: receiptOrder.deliveryFee,
+      total: receiptOrder.total,
+      notes: receiptOrder.notes,
+    });
+  }, [receiptOrder]);
 
   const selectedTable = selectedTableId
     ? tables.find((table) => table.id === selectedTableId) || null
@@ -289,6 +327,19 @@ export default function OrdersPage() {
       await loadData();
     } catch (error) {
       handleError(error, "تعذر حذف الطاولة");
+    }
+  };
+
+  const handleClearTable = async (tableId: string) => {
+    try {
+      await apiRequest<{ table: TableRow }>(`/api/tables/${tableId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "empty", orderId: null }),
+      });
+      pushToast("تم تفريغ الطاولة", "success");
+      await loadData();
+    } catch (error) {
+      handleError(error, "تعذر تفريغ الطاولة");
     }
   };
 
@@ -464,6 +515,8 @@ export default function OrdersPage() {
                         <RowActions
                           onView={() => setSelectedOrderId(order.id)}
                           onDelete={() => setOrderDeleteId(order.id)}
+                          onPrint={() => setReceiptOrderId(order.id)}
+                          printMessage="تم فتح إيصال الطلب"
                           confirmDelete={false}
                         />
                       </td>
@@ -550,6 +603,8 @@ export default function OrdersPage() {
                         <RowActions
                           onView={() => setSelectedOrderId(order.id)}
                           onDelete={() => setOrderDeleteId(order.id)}
+                          onPrint={() => setReceiptOrderId(order.id)}
+                          printMessage="تم فتح إيصال الطلب"
                           confirmDelete={false}
                         />
                       </td>
@@ -666,6 +721,19 @@ export default function OrdersPage() {
                 <span>الإجمالي</span>
                 <strong>{money(selectedOrder.total)}</strong>
               </div>
+            </div>
+
+            <div className="row-actions" style={{ marginTop: 12 }}>
+              <button
+                className="ghost"
+                type="button"
+                onClick={() => {
+                  setReceiptOrderId(selectedOrder.id);
+                  setSelectedOrderId(null);
+                }}
+              >
+                طباعة الإيصال
+              </button>
             </div>
 
             <table className="view-table" style={{ marginTop: 12 }}>
@@ -820,36 +888,52 @@ export default function OrdersPage() {
                 <span>الحالة</span>
                 <strong>{selectedTable.status === "occupied" ? "مشغولة" : "فارغة"}</strong>
               </div>
-              {selectedTable.status === "occupied" && tableOrder ? (
-                <>
-                  <div className="row-line">
-                    <span>رقم الطلب</span>
-                    <strong>{tableOrder.code}</strong>
-                  </div>
-                  <div className="row-line">
-                    <span>العميل</span>
-                    <strong>{tableOrder.customer}</strong>
-                  </div>
-                  <button
-                    className="primary"
-                    type="button"
-                    onClick={() => {
-                      setSelectedOrderId(tableOrder.id);
-                      setSelectedTableId(null);
-                    }}
-                  >
-                    عرض تفاصيل الطلب
-                  </button>
-                  <button
-                    className="ghost"
-                    type="button"
-                    onClick={() => {
-                      setFinishTableOrderId(tableOrder.id);
-                    }}
-                  >
-                    إنهاء الطاولة
-                  </button>
-                </>
+              {selectedTable.status === "occupied" ? (
+                tableOrder ? (
+                  <>
+                    <div className="row-line">
+                      <span>رقم الطلب</span>
+                      <strong>{tableOrder.code}</strong>
+                    </div>
+                    <div className="row-line">
+                      <span>العميل</span>
+                      <strong>{tableOrder.customer}</strong>
+                    </div>
+                    <button
+                      className="primary"
+                      type="button"
+                      onClick={() => {
+                        setSelectedOrderId(tableOrder.id);
+                        setSelectedTableId(null);
+                      }}
+                    >
+                      عرض تفاصيل الطلب
+                    </button>
+                    <button
+                      className="ghost"
+                      type="button"
+                      onClick={() => {
+                        setFinishTableOrderId(tableOrder.id);
+                      }}
+                    >
+                      إنهاء الطاولة
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="hint">تم إشغال الطاولة يدوياً بدون ربط طلب.</p>
+                    <button
+                      className="ghost"
+                      type="button"
+                      onClick={() => {
+                        void handleClearTable(selectedTable.id);
+                        setSelectedTableId(null);
+                      }}
+                    >
+                      تفريغ الطاولة
+                    </button>
+                  </>
+                )
               ) : (
                 <p className="hint">هذه الطاولة فارغة حالياً.</p>
               )}
@@ -910,6 +994,12 @@ export default function OrdersPage() {
           <p>سيتم إنهاء الطلب المرتبط بالطاولة وتحويله تلقائياً إلى المبيعات كفاتورة معتمدة.</p>
         </div>
       </InlineModal>
+
+      <ReceiptModal
+        open={Boolean(receiptOrder)}
+        receipt={receiptSnapshot}
+        onClose={() => setReceiptOrderId(null)}
+      />
     </section>
   );
 }

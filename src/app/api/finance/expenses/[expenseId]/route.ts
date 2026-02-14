@@ -36,7 +36,15 @@ export async function PATCH(
       },
     });
 
-    return jsonOk({ expense: mapExpense(updated) });
+    const mapped = mapExpense(updated);
+    return jsonOk({
+      expense: {
+        ...mapped,
+        source: "manual",
+        sourceId: updated.id,
+        readonly: false,
+      },
+    });
   } catch (error) {
     return jsonError(error);
   }

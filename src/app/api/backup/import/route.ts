@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/server/db";
+import { Prisma } from "@prisma/client";
 import { requireAuth } from "@/server/auth/guards";
 import { HttpError, jsonError, jsonOk, readJson } from "@/server/http";
 import { backupImportSchema } from "@/server/validation/schemas";
@@ -31,7 +32,12 @@ export async function POST(request: NextRequest) {
     let reference = generateCode("IMP").replace(/[^A-Za-z0-9_-]/g, "-");
     reference = reference.slice(0, 40);
 
-    const storagePath = await writeBackupFile(reference, content);
+    let storagePath: string | null = null;
+    try {
+      storagePath = await writeBackupFile(reference, content);
+    } catch {
+      storagePath = null;
+    }
 
     try {
       const record = await db.backupRecord.create({
@@ -40,6 +46,7 @@ export async function POST(request: NextRequest) {
           status: "COMPLETED",
           sizeBytes,
           storagePath,
+          payload: snapshot as Prisma.InputJsonValue,
           note: payload.note?.trim() || "استعادة من ملف محلي",
           restoredAt: new Date(),
           createdById: auth.user.id,

@@ -58,7 +58,22 @@ export default function TableDataActions<T>({
     if (tableId) {
       const table = document.getElementById(tableId);
       if (table) {
-        html = table.outerHTML;
+        const cloned = table.cloneNode(true) as HTMLElement;
+        const headerRow = cloned.querySelector("thead tr");
+        const headerCells = headerRow ? Array.from(headerRow.children) : [];
+        const actionIndex = headerCells.findIndex((cell) =>
+          cell.textContent?.trim().includes("الإجراءات")
+        );
+        if (actionIndex >= 0) {
+          const rows = cloned.querySelectorAll("tr");
+          rows.forEach((row) => {
+            const cells = Array.from(row.children);
+            if (cells[actionIndex]) {
+              cells[actionIndex].remove();
+            }
+          });
+        }
+        html = cloned.outerHTML;
       }
     }
 

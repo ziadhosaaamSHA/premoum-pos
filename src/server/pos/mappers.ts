@@ -1,4 +1,4 @@
-import { OrderStatus, OrderType, PaymentMethod, ZoneStatus } from "@prisma/client";
+import { OrderStatus, OrderType, PaymentMethod, Prisma, ZoneStatus } from "@prisma/client";
 
 export const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.PREPARING,
@@ -109,8 +109,11 @@ type OrderRow = {
   driverId: string | null;
   tableId: string | null;
   discount: unknown;
+  taxRate: unknown;
+  taxAmount: unknown;
   payment: PaymentMethod;
   notes: string | null;
+  receiptSnapshot: Prisma.JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
   items: OrderItemRow[];
@@ -131,7 +134,11 @@ export function mapOrder(row: OrderRow) {
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
   const deliveryFee = row.type === OrderType.DELIVERY ? Number(row.zone?.fee || 0) : 0;
   const discount = Number(row.discount || 0);
-  const total = subtotal + deliveryFee - discount;
+  const taxRate = Number(row.taxRate || 0);
+  const base = Math.max(0, subtotal - discount);
+  const storedTaxAmount = Number(row.taxAmount || 0);
+  const taxAmount = storedTaxAmount > 0 ? storedTaxAmount : base * (taxRate / 100);
+  const total = base + deliveryFee + taxAmount;
 
   return {
     id: row.id,
@@ -144,9 +151,13 @@ export function mapOrder(row: OrderRow) {
     driverId: row.driverId,
     tableId: row.tableId,
     tableName: row.table?.name || null,
+    tableNumber: row.table?.number ?? null,
     discount,
+    taxRate,
+    taxAmount,
     payment: fromPaymentMethod(row.payment),
     notes: row.notes,
+    receiptSnapshot: row.receiptSnapshot ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     items,

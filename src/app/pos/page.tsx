@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
+import { useBranding } from "@/context/BrandingContext";
 import { ApiError, apiRequest } from "@/lib/api";
 import { money } from "@/lib/format";
+import { buildReceiptSnapshot, ReceiptSnapshot } from "@/lib/receipt";
+import ReceiptModal from "@/components/ui/ReceiptModal";
 
 type PosCategory = {
   id: string;
@@ -18,6 +21,7 @@ type PosProduct = {
   price: number;
   label: string;
   isActive: boolean;
+  maxQty: number | null;
 };
 
 type PosZone = {
@@ -37,6 +41,14 @@ type PosTable = {
   orderId: string | null;
 };
 
+type PosTax = {
+  id: string;
+  name: string;
+  rate: number;
+  isDefault: boolean;
+  isActive: boolean;
+};
+
 type CartItem = {
   productId: string;
   qty: number;
@@ -47,12 +59,14 @@ type PaymentUi = "cash" | "card" | "wallet" | "mixed";
 
 export default function PosPage() {
   const { pushToast } = useToast();
+  const { branding } = useBranding();
 
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<PosCategory[]>([]);
   const [products, setProducts] = useState<PosProduct[]>([]);
   const [zones, setZones] = useState<PosZone[]>([]);
   const [tables, setTables] = useState<PosTable[]>([]);
+  const [taxes, setTaxes] = useState<PosTax[]>([]);
 
   const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
@@ -60,9 +74,12 @@ export default function PosPage() {
   const [payment, setPayment] = useState<PaymentUi>("cash");
   const [zoneId, setZoneId] = useState("");
   const [tableId, setTableId] = useState("");
-  const [discount, setDiscount] = useState(0);
+  const [discountRate, setDiscountRate] = useState(0);
+  const [extraTaxRate, setExtraTaxRate] = useState(0);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [receipt, setReceipt] = useState<ReceiptSnapshot | null>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
 
   const activeZones = useMemo(() => zones.filter((zone) => zone.status === "active"), [zones]);
   const availableTables = useMemo(() => tables.filter((table) => table.status === "empty"), [tables]);
@@ -74,12 +91,14 @@ export default function PosPage() {
         products: PosProduct[];
         zones: PosZone[];
         tables: PosTable[];
+        taxes: PosTax[];
       }>("/api/pos/bootstrap");
 
       setCategories(data.categories);
       setProducts(data.products);
       setZones(data.zones);
       setTables(data.tables);
+      setTaxes(data.taxes || []);
 
       if (data.zones.length > 0 && !data.zones.some((zone) => zone.id === zoneId && zone.status === "active")) {
         setZoneId(data.zones.find((zone) => zone.status === "active")?.id || "");
@@ -148,10 +167,48 @@ export default function PosPage() {
     return zone?.fee || 0;
   }, [orderType, zoneId, zones]);
 
-  const total = cartSubtotal + deliveryFee - discount;
+  const defaultTax = useMemo(
+    () => taxes.find((tax) => tax.isDefault && tax.isActive) || null,
+    [taxes]
+  );
+  const defaultTaxRate = defaultTax?.rate || 0;
+  const combinedTaxRate = defaultTaxRate + extraTaxRate;
+  const discountAmount = Math.min(cartSubtotal, (cartSubtotal * discountRate) / 100);
+  const taxableBase = Math.max(0, cartSubtotal - discountAmount);
+  const taxAmount = taxableBase * (combinedTaxRate / 100);
+  const total = taxableBase + deliveryFee + taxAmount;
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
+  const cartQtyMap = useMemo(() => new Map(cart.map((item) => [item.productId, item.qty])), [cart]);
+
+  const getProductAvailability = useCallback(
+    (product: PosProduct) => {
+      const cartQty = cartQtyMap.get(product.id) || 0;
+      if (!product.isActive) {
+        return { disabled: true, reason: "غير متاح حالياً", remaining: 0 };
+      }
+      if (product.maxQty === null) {
+        return { disabled: false, reason: "", remaining: null };
+      }
+      const remaining = product.maxQty - cartQty;
+      if (product.maxQty <= 0) {
+        return { disabled: true, reason: "نفذ المخزون", remaining: 0 };
+      }
+      if (remaining <= 0) {
+        return { disabled: true, reason: "لا يتوفر مخزون إضافي", remaining: 0 };
+      }
+      return { disabled: false, reason: "", remaining };
+    },
+    [cartQtyMap]
+  );
 
   const addToCart = (productId: string) => {
+    const product = products.find((entry) => entry.id === productId);
+    if (!product) return;
+    const availability = getProductAvailability(product);
+    if (availability.disabled) {
+      pushToast(availability.reason || "لا يمكن إضافة هذا المنتج حالياً", "error");
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((item) => item.productId === productId);
       if (existing) {
@@ -164,6 +221,16 @@ export default function PosPage() {
   };
 
   const changeCartQty = (productId: string, delta: number) => {
+    if (delta > 0) {
+      const product = products.find((entry) => entry.id === productId);
+      if (product) {
+        const availability = getProductAvailability(product);
+        if (availability.disabled) {
+          pushToast(availability.reason || "لا يمكن زيادة الكمية", "error");
+          return;
+        }
+      }
+    }
     setCart((prev) =>
       prev
         .map((item) =>
@@ -175,6 +242,8 @@ export default function PosPage() {
 
   const clearCart = () => {
     setCart([]);
+    setDiscountRate(0);
+    setExtraTaxRate(0);
     pushToast("تم تفريغ السلة", "success");
   };
 
@@ -206,18 +275,61 @@ export default function PosPage() {
               : "عميل توصيل",
         zoneId: orderType === "delivery" ? zoneId : null,
         tableId: orderType === "dine_in" ? tableId : null,
-        discount,
+        discount: discountAmount,
+        taxRate: combinedTaxRate,
         payment,
         items: cart.map((item) => ({ productId: item.productId, quantity: item.qty })),
       };
 
-      const result = await apiRequest<{ order: { code: string } }>("/api/orders", {
-        method: "POST",
-        body: JSON.stringify(payload),
+      const result = await apiRequest<{ order: { code: string; receiptSnapshot?: ReceiptSnapshot | null } }>(
+        "/api/orders",
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const fallbackItems = cart.map((item) => {
+        const product = products.find((entry) => entry.id === item.productId);
+        const unitPrice = product?.price || 0;
+        return {
+          name: product?.name || "منتج",
+          qty: item.qty,
+          unitPrice,
+          totalPrice: unitPrice * item.qty,
+        };
       });
 
+      const fallbackReceipt = buildReceiptSnapshot({
+        code: result.order.code,
+        createdAt: new Date().toISOString(),
+        customerName: payload.customerName,
+        orderType: orderType,
+        payment: payment,
+        brandName: branding.brandName,
+        brandTagline: branding.brandTagline || undefined,
+        tableName:
+          orderType === "dine_in" ? tables.find((table) => table.id === tableId)?.name || null : null,
+        tableNumber:
+          orderType === "dine_in" ? tables.find((table) => table.id === tableId)?.number || null : null,
+        zoneName:
+          orderType === "delivery" ? zones.find((zone) => zone.id === zoneId)?.name || null : null,
+        items: fallbackItems,
+        discount: discountAmount,
+        taxRate: combinedTaxRate,
+        taxAmount,
+        deliveryFee,
+        total,
+        notes: null,
+      });
+
+      const snapshot = result.order.receiptSnapshot ?? fallbackReceipt;
+      setReceipt(snapshot);
+      setReceiptOpen(true);
+
       setCart([]);
-      setDiscount(0);
+      setDiscountRate(0);
+      setExtraTaxRate(0);
       pushToast(`تم تسجيل الطلب ${result.order.code}`, "success");
       await fetchBootstrap();
     } catch (error) {
@@ -289,24 +401,31 @@ export default function PosPage() {
 
           <div className="pos-products-scroll">
             <div className="product-grid">
-              {filteredProducts.map((product) => (
-                <button
-                  key={product.id}
-                  type="button"
-                  className="product-card"
-                  onClick={() => addToCart(product.id)}
-                >
-                  <div className="product-thumb">{product.label || product.name[0]}</div>
-                  <div className="product-name">{product.name}</div>
-                  <div className="product-meta">
-                    <span className="product-price">{money(product.price)}</span>
-                  </div>
-                  <div className="product-action">
-                    <span>إضافة للسلة</span>
-                    <i className="bx bx-plus"></i>
-                  </div>
-                </button>
-              ))}
+              {filteredProducts.map((product) => {
+                const availability = getProductAvailability(product);
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    className={`product-card ${availability.disabled ? "disabled" : ""}`}
+                    onClick={() => addToCart(product.id)}
+                    disabled={availability.disabled}
+                  >
+                    <div className="product-thumb">{product.label || product.name[0]}</div>
+                    <div className="product-name">{product.name}</div>
+                    <div className="product-meta">
+                      <span className="product-price">{money(product.price)}</span>
+                      {availability.disabled && availability.reason ? (
+                        <span className="product-status">{availability.reason}</span>
+                      ) : null}
+                    </div>
+                    <div className="product-action">
+                      <span>{availability.disabled ? "غير متاح" : "إضافة للسلة"}</span>
+                      <i className="bx bx-plus"></i>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
             {filteredProducts.length === 0 ? <p className="hint">لا توجد منتجات مطابقة للفلتر الحالي.</p> : null}
           </div>
@@ -378,12 +497,33 @@ export default function PosPage() {
             )}
 
             <div className="field">
-              <label>خصم</label>
+              <label>خصم (%)</label>
               <input
                 type="number"
-                value={discount}
+                value={discountRate}
                 min={0}
-                onChange={(event) => setDiscount(Number(event.target.value || 0))}
+                max={100}
+                step={0.5}
+                onChange={(event) => setDiscountRate(Number(event.target.value || 0))}
+              />
+            </div>
+
+            <div className="field">
+              <label>ضريبة النظام</label>
+              <div className="muted">
+                {defaultTax ? `${defaultTax.name} بنسبة ${defaultTax.rate}%` : "لا توجد ضريبة افتراضية"}
+              </div>
+            </div>
+
+            <div className="field">
+              <label>ضريبة إضافية (%)</label>
+              <input
+                type="number"
+                value={extraTaxRate}
+                min={0}
+                max={100}
+                step={0.5}
+                onChange={(event) => setExtraTaxRate(Number(event.target.value || 0))}
               />
             </div>
 
@@ -415,8 +555,12 @@ export default function PosPage() {
               <strong>{money(cartSubtotal)}</strong>
             </div>
             <div className="summary-row">
-              <span>خصم</span>
-              <strong>{money(discount)}</strong>
+              <span>خصم ({discountRate.toFixed(1)}%)</span>
+              <strong>{money(discountAmount)}</strong>
+            </div>
+            <div className="summary-row">
+              <span>ضريبة ({combinedTaxRate.toFixed(2)}%)</span>
+              <strong>{money(taxAmount)}</strong>
             </div>
             <div className="summary-row">
               <span>رسوم التوصيل</span>
@@ -441,6 +585,8 @@ export default function PosPage() {
           <p className="hint">يتم تسجيل الطلب في قاعدة البيانات مباشرة مع خصم المخزون تلقائياً.</p>
         </div>
       </div>
+
+      <ReceiptModal open={receiptOpen} receipt={receipt} onClose={() => setReceiptOpen(false)} />
     </section>
   );
 }

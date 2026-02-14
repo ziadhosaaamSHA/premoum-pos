@@ -15,6 +15,8 @@ type ExpenseRow = {
   vendor: string;
   amount: number;
   notes: string | null;
+  source: "manual" | "purchase";
+  sourceId: string;
 };
 
 type RevenueRow = {
@@ -66,6 +68,7 @@ export default function FinancePage() {
   const [revenuePeriodFilter, setRevenuePeriodFilter] = useState("");
   const [searchExpenses, setSearchExpenses] = useState("");
   const [expenseAmountFilter, setExpenseAmountFilter] = useState("");
+  const [expenseSourceFilter, setExpenseSourceFilter] = useState("");
   const [searchShift, setSearchShift] = useState("");
   const [shiftFilter, setShiftFilter] = useState("");
 
@@ -122,9 +125,10 @@ export default function FinancePage() {
         !expenseAmountFilter ||
         (expenseAmountFilter === "low" && expense.amount < 1000) ||
         (expenseAmountFilter === "high" && expense.amount >= 1000);
-      return matchesSearch && matchesAmount;
+      const matchesSource = !expenseSourceFilter || expense.source === expenseSourceFilter;
+      return matchesSearch && matchesAmount && matchesSource;
     });
-  }, [data?.expenses, expenseAmountFilter, searchExpenses]);
+  }, [data?.expenses, expenseAmountFilter, expenseSourceFilter, searchExpenses]);
 
   const filteredRevenueRows = useMemo(() => {
     const rows = data?.revenueRows || [];
@@ -167,6 +171,7 @@ export default function FinancePage() {
 
     const expense = data?.expenses.find((item) => item.id === expenseId);
     if (!expense) return;
+    if (mode === "edit" && expense.source !== "manual") return;
 
     setExpenseForm({
       date: expense.date,
@@ -388,6 +393,15 @@ export default function FinancePage() {
                   <option value="low">أقل من 1000</option>
                   <option value="high">1000 فأكثر</option>
                 </select>
+                <select
+                  className="select-filter"
+                  value={expenseSourceFilter}
+                  onChange={(event) => setExpenseSourceFilter(event.target.value)}
+                >
+                  <option value="">كل المصادر</option>
+                  <option value="manual">مصروفات يدوية</option>
+                  <option value="purchase">مشتريات مخزون</option>
+                </select>
                 <button className="primary" type="button" onClick={() => openExpenseModal("create")}
                 >
                   <i className="bx bx-plus"></i>
@@ -400,6 +414,7 @@ export default function FinancePage() {
                     { label: "البند", value: (row) => row.title },
                     { label: "الجهة", value: (row) => row.vendor },
                     { label: "القيمة", value: (row) => row.amount },
+                    { label: "المصدر", value: (row) => (row.source === "manual" ? "مصروف يدوي" : "مشتريات مخزون") },
                   ]}
                   fileName="finance-expenses"
                   printTitle="المصروفات"
@@ -414,13 +429,14 @@ export default function FinancePage() {
                   <th>البند</th>
                   <th>الجهة</th>
                   <th>القيمة</th>
+                  <th>المصدر</th>
                   <th>الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredExpenses.length === 0 ? (
                   <tr>
-                    <td colSpan={5}>لا توجد بيانات</td>
+                    <td colSpan={6}>لا توجد بيانات</td>
                   </tr>
                 ) : (
                   filteredExpenses.map((expense) => (
@@ -430,12 +446,21 @@ export default function FinancePage() {
                       <td>{expense.vendor}</td>
                       <td>{money(expense.amount)}</td>
                       <td>
-                        <RowActions
-                          onView={() => openExpenseModal("view", expense.id)}
-                          onEdit={() => openExpenseModal("edit", expense.id)}
-                          onDelete={() => deleteExpense(expense.id)}
-                          deleteMessage="تم حذف المصروف"
-                        />
+                        <span className={`badge ${expense.source === "manual" ? "ok" : "neutral"}`}>
+                          {expense.source === "manual" ? "يدوي" : "مشتريات"}
+                        </span>
+                      </td>
+                      <td>
+                        {expense.source === "manual" ? (
+                          <RowActions
+                            onView={() => openExpenseModal("view", expense.id)}
+                            onEdit={() => openExpenseModal("edit", expense.id)}
+                            onDelete={() => deleteExpense(expense.id)}
+                            deleteMessage="تم حذف المصروف"
+                          />
+                        ) : (
+                          <RowActions onView={() => openExpenseModal("view", expense.id)} />
+                        )}
                       </td>
                     </tr>
                   ))

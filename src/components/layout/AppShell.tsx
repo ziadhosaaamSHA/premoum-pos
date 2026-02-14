@@ -8,6 +8,8 @@ import UserActions from "@/components/layout/UserActions";
 import Modals from "@/components/modals/Modals";
 import ToastHost from "@/components/ui/ToastHost";
 import { useAuth } from "@/context/AuthContext";
+import { useBranding } from "@/context/BrandingContext";
+import { apiRequest } from "@/lib/api";
 import { getRequiredPermission, navItems } from "@/lib/routes";
 import useLocalStorageBoolean from "@/lib/useLocalStorageBoolean";
 import useMediaQuery from "@/lib/useMediaQuery";
@@ -16,12 +18,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { loading, authenticated, hasPermission } = useAuth();
+  const { branding } = useBranding();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const isCompact = useMediaQuery("(max-width: 1100px)");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [storedCollapsed, setStoredCollapsed] = useLocalStorageBoolean("sidebarCollapsed", false);
 
   const isAuthRoute = pathname === "/login" || pathname === "/accept-invite";
+  const isSetupRoute = pathname === "/setup";
+  const canManageSettings = hasPermission("settings:manage");
   const requiredPermission = getRequiredPermission(pathname);
   const hasRoutePermission = !requiredPermission || hasPermission(requiredPermission);
 
@@ -32,11 +37,44 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const sidebarCollapsed = !isMobile && storedCollapsed;
   const sidebarOpen = isMobile && mobileOpen;
+  const [setupStatus, setSetupStatus] = useState<
+    "loading" | "first-launch" | "complete" | "incomplete"
+  >("loading");
 
   useEffect(() => {
     if (loading) return;
+    let active = true;
+    setSetupStatus("loading");
+
+    void (async () => {
+      try {
+        const payload = await apiRequest<{ setup: { isComplete: boolean; hasOwner: boolean } }>(
+          "/api/system/setup"
+        );
+        if (!active) return;
+        if (!payload.setup.hasOwner) {
+          setSetupStatus("first-launch");
+          return;
+        }
+        setSetupStatus(payload.setup.isComplete ? "complete" : "incomplete");
+      } catch {
+        if (active) setSetupStatus("complete");
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [loading, authenticated, isSetupRoute]);
+
+  useEffect(() => {
+    if (loading || setupStatus === "loading") return;
 
     if (isAuthRoute) {
+      if (setupStatus === "first-launch") {
+        router.replace("/setup");
+        return;
+      }
       if (authenticated) {
         router.replace(fallbackRoute);
       }
@@ -44,6 +82,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     if (!authenticated) {
+      if (setupStatus === "first-launch") {
+        if (!isSetupRoute) {
+          router.replace("/setup");
+        }
+        return;
+      }
       const next = encodeURIComponent(pathname);
       router.replace(`/login?next=${next}`);
       return;
@@ -51,15 +95,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     if (!hasRoutePermission) {
       router.replace(fallbackRoute);
+      return;
+    }
+
+    if (setupStatus === "incomplete" && canManageSettings && !isSetupRoute) {
+      router.replace("/setup");
+      return;
+    }
+
+    if (setupStatus === "complete" && isSetupRoute) {
+      router.replace(fallbackRoute);
     }
   }, [
     authenticated,
+    canManageSettings,
     fallbackRoute,
     hasRoutePermission,
     isAuthRoute,
+    isSetupRoute,
     loading,
     pathname,
     router,
+    setupStatus,
   ]);
 
   useEffect(() => {
@@ -88,8 +145,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="auth-shell">
           <section className="auth-card">
             <div className="auth-brand">
-              <h1>Premium POS</h1>
-              <p>جارٍ التحقق من الجلسة...</p>
+              <h1>{branding.brandName}</h1>
+              <p>{branding.brandTagline || "جارٍ التحقق من الجلسة..."}</p>
             </div>
           </section>
           <ToastHost />
@@ -113,13 +170,39 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (loading || !authenticated || !hasRoutePermission) {
+  const allowSetupWithoutAuth = setupStatus === "first-launch";
+  const showSetupShell = isSetupRoute && (allowSetupWithoutAuth || (authenticated && hasRoutePermission));
+
+  if (showSetupShell) {
+    if (loading || setupStatus === "loading") {
+      return (
+        <div className="auth-shell">
+          <section className="auth-card">
+            <div className="auth-brand">
+              <h1>{branding.brandName}</h1>
+              <p>جارٍ تجهيز إعدادات النظام...</p>
+            </div>
+          </section>
+          <ToastHost />
+        </div>
+      );
+    }
+
+    return (
+      <div className="setup-shell">
+        {children}
+        <ToastHost />
+      </div>
+    );
+  }
+
+  if (loading || setupStatus === "loading" || !authenticated || !hasRoutePermission) {
     return (
       <div className="auth-shell">
         <section className="auth-card">
           <div className="auth-brand">
-            <h1>Premium POS</h1>
-            <p>جارٍ تحميل بيانات المستخدم...</p>
+            <h1>{branding.brandName}</h1>
+            <p>{branding.brandTagline || "جارٍ تحميل بيانات المستخدم..."}</p>
           </div>
         </section>
         <ToastHost />

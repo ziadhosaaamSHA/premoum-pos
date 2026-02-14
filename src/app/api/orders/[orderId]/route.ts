@@ -59,7 +59,8 @@ async function upsertApprovedSaleForOrder(
   const subtotal = order.items.reduce((sum, item) => sum + Number(item.totalPrice), 0);
   const deliveryFee = order.type === OrderType.DELIVERY ? Number(order.zone?.fee || 0) : 0;
   const discount = Number(order.discount || 0);
-  const total = subtotal + deliveryFee - discount;
+  const taxAmount = Number(order.taxAmount || 0);
+  const total = subtotal + deliveryFee + taxAmount - discount;
 
   const saleItemsPayload = order.items.map((item) => ({
     productId: item.productId,

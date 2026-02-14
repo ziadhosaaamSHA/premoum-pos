@@ -24,6 +24,7 @@ export async function POST(
       select: {
         id: true,
         reference: true,
+        payload: true,
       },
     });
 
@@ -31,11 +32,17 @@ export async function POST(
       throw new HttpError(404, "backup_not_found", "Backup record not found");
     }
 
-    const { content } = await readBackupFile(backup.reference).catch(() => {
-      throw new HttpError(404, "backup_file_missing", "Backup file is missing");
-    });
+    let snapshot: unknown;
+    if (backup.payload) {
+      snapshot = backup.payload;
+    } else {
+      const { content } = await readBackupFile(backup.reference).catch(() => {
+        throw new HttpError(404, "backup_file_missing", "Backup file is missing");
+      });
+      snapshot = JSON.parse(content);
+    }
 
-    const parsed = parseSystemSnapshot(JSON.parse(content));
+    const parsed = parseSystemSnapshot(snapshot);
     if (!parsed) {
       throw new HttpError(400, "invalid_snapshot", "Backup file format is invalid");
     }

@@ -35,7 +35,7 @@ export default function InlineModal({
           </button>
         </div>
         <p className="hint modal-hint">{tip}</p>
-        {children}
+        <div className="modal-content">{children}</div>
         {footer ? <div className="modal-footer">{footer}</div> : null}
       </div>
     </div>

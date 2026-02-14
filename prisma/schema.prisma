@@ -93,6 +93,7 @@ model User {
   fullName         String
   passwordHash     String?
   phone            String?
+  avatarUrl        String?
   status           UserStatus     @default(INVITED)
   isOwner          Boolean        @default(false)
   inviteAcceptedAt DateTime?
@@ -325,6 +326,50 @@ model Zone {
   orders    Order[]
 }
 
+model TaxRate {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  rate      Decimal  @db.Decimal(5, 2)
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, isDefault])
+}
+
+model BrandingSettings {
+  id             String   @id
+  brandName      String
+  brandTagline   String?
+  logoUrl        String?
+  primaryColor   String
+  secondaryColor String
+  backgroundColor  String   @default("#f7f3ee")
+  cardColor        String   @default("#ffffff")
+  borderColor      String   @default("#e6e1db")
+  topbarColor      String   @default("#ffffff")
+  topbarTextColor  String   @default("#1b1b1b")
+  tableHeaderColor String   @default("#fbfaf8")
+  tableHeaderTextColor String @default("#6b6b6b")
+  backgroundOpacity Int     @default(100)
+  cardOpacity       Int     @default(100)
+  topbarOpacity     Int     @default(100)
+  tableHeaderOpacity Int    @default(100)
+  sidebarOpacity    Int     @default(100)
+  sidebarColor     String   @default("#1f2a2b")
+  sidebarTextColor String   @default("#f6f3ef")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model SystemSettings {
+  id               String   @id
+  setupCompletedAt DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
 model Driver {
   id           String   @id @default(cuid())
   name         String
@@ -356,8 +401,11 @@ model Order {
   driverId     String?
   tableId      String?
   discount     Decimal       @default(0) @db.Decimal(12, 2)
+  taxRate      Decimal       @default(0) @db.Decimal(5, 2)
+  taxAmount    Decimal       @default(0) @db.Decimal(12, 2)
   payment      PaymentMethod @default(CASH)
   notes        String?
+  receiptSnapshot Json?
   createdById  String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -516,6 +564,7 @@ model BackupRecord {
   status      BackupStatus @default(COMPLETED)
   sizeBytes   Int          @default(0)
   storagePath String?
+  payload     Json?
   note        String?
   createdById String?
   createdAt   DateTime     @default(now())

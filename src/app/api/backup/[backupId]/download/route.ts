@@ -19,6 +19,7 @@ export async function GET(
       select: {
         id: true,
         reference: true,
+        payload: true,
       },
     });
 
@@ -26,9 +27,16 @@ export async function GET(
       throw new HttpError(404, "backup_not_found", "Backup record not found");
     }
 
-    const { content } = await readBackupFile(backup.reference).catch(() => {
-      throw new HttpError(404, "backup_file_missing", "Backup file is missing");
-    });
+    let content: string;
+    if (backup.payload) {
+      content = JSON.stringify(backup.payload, null, 2);
+    } else {
+      content = await readBackupFile(backup.reference)
+        .then((result) => result.content)
+        .catch(() => {
+          throw new HttpError(404, "backup_file_missing", "Backup file is missing");
+        });
+    }
 
     return new Response(content, {
       status: 200,

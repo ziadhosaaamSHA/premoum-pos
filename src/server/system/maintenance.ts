@@ -13,6 +13,7 @@ import {
   ZoneStatus,
 } from "@prisma/client";
 import { db } from "@/server/db";
+import { SYSTEM_SETTINGS_ID } from "@/server/system/setup";
 
 export type ResetScope = "transactions" | "operational";
 
@@ -90,6 +91,13 @@ export type SystemSnapshot = {
       minOrder: number;
       status: string;
     }>;
+    taxes: SnapshotEntity<{
+      id: string;
+      name: string;
+      rate: number;
+      isDefault: boolean;
+      isActive: boolean;
+    }>;
     drivers: SnapshotEntity<{
       id: string;
       name: string;
@@ -113,8 +121,11 @@ export type SystemSnapshot = {
       driverId: string | null;
       tableId: string | null;
       discount: number;
+      taxRate: number;
+      taxAmount: number;
       payment: string;
       notes: string | null;
+      receiptSnapshot: Prisma.JsonValue | null;
       createdAt: string;
       updatedAt: string;
     }>;
@@ -411,6 +422,13 @@ export function parseSystemSnapshot(payload: unknown): SystemSnapshot | null {
       minOrder: toNumber(row.minOrder),
       status: toText(row.status),
     })),
+    taxes: ensureArray(maybeData.taxes).map((row) => ({
+      id: toText(row.id),
+      name: toText(row.name),
+      rate: toNumber(row.rate),
+      isDefault: toBoolean(row.isDefault),
+      isActive: toBoolean(row.isActive),
+    })),
     drivers: ensureArray(maybeData.drivers).map((row) => ({
       id: toText(row.id),
       name: toText(row.name),
@@ -434,8 +452,11 @@ export function parseSystemSnapshot(payload: unknown): SystemSnapshot | null {
       driverId: toNullableText(row.driverId),
       tableId: toNullableText(row.tableId),
       discount: toNumber(row.discount),
+      taxRate: toNumber(row.taxRate),
+      taxAmount: toNumber(row.taxAmount),
       payment: toText(row.payment),
       notes: toNullableText(row.notes),
+      receiptSnapshot: row.receiptSnapshot ?? null,
       createdAt: toText(row.createdAt),
       updatedAt: toText(row.updatedAt),
     })),
@@ -542,6 +563,7 @@ export async function buildSystemSnapshot(client: DbClient = db): Promise<System
     purchaseItems,
     waste,
     zones,
+    taxes,
     drivers,
     diningTables,
     orders,
@@ -565,6 +587,7 @@ export async function buildSystemSnapshot(client: DbClient = db): Promise<System
     client.purchaseItem.findMany({ orderBy: { id: "asc" } }),
     client.waste.findMany({ orderBy: { date: "asc" } }),
     client.zone.findMany({ orderBy: { name: "asc" } }),
+    client.taxRate.findMany({ orderBy: [{ isDefault: "desc" }, { name: "asc" }] }),
     client.driver.findMany({ orderBy: { name: "asc" } }),
     client.diningTable.findMany({ orderBy: { number: "asc" } }),
     client.order.findMany({ orderBy: { createdAt: "asc" } }),
@@ -650,6 +673,13 @@ export async function buildSystemSnapshot(client: DbClient = db): Promise<System
         minOrder: Number(item.minOrder),
         status: item.status,
       })),
+      taxes: taxes.map((item) => ({
+        id: item.id,
+        name: item.name,
+        rate: Number(item.rate),
+        isDefault: item.isDefault,
+        isActive: item.isActive,
+      })),
       drivers: drivers.map((item) => ({
         id: item.id,
         name: item.name,
@@ -673,8 +703,11 @@ export async function buildSystemSnapshot(client: DbClient = db): Promise<System
         driverId: item.driverId,
         tableId: item.tableId,
         discount: Number(item.discount),
+        taxRate: Number(item.taxRate),
+        taxAmount: Number(item.taxAmount),
         payment: item.payment,
         notes: item.notes,
+        receiptSnapshot: item.receiptSnapshot ?? null,
         createdAt: item.createdAt.toISOString(),
         updatedAt: item.updatedAt.toISOString(),
       })),
@@ -801,6 +834,7 @@ async function clearOperational(client: Prisma.TransactionClient) {
   await client.material.deleteMany();
   await client.supplier.deleteMany();
   await client.zone.deleteMany();
+  await client.taxRate.deleteMany();
   await client.driver.deleteMany();
   await client.diningTable.deleteMany();
   await client.shiftTemplate.deleteMany();
@@ -815,6 +849,29 @@ export async function resetSystemData(scope: ResetScope) {
     }
 
     await clearOperational(client);
+  });
+}
+
+export async function factoryResetSystemData() {
+  return db.$transaction(async (client) => {
+    await clearOperational(client);
+
+    await client.branch.deleteMany();
+    await client.brandingSettings.deleteMany();
+    await client.backupRecord.deleteMany();
+    await client.auditLog.deleteMany();
+    await client.session.deleteMany();
+    await client.invite.deleteMany();
+    await client.userRole.deleteMany();
+    await client.rolePermission.deleteMany();
+    await client.role.deleteMany();
+    await client.user.deleteMany();
+
+    await client.systemSettings.upsert({
+      where: { id: SYSTEM_SETTINGS_ID },
+      update: { setupCompletedAt: null },
+      create: { id: SYSTEM_SETTINGS_ID },
+    });
   });
 }
 
@@ -964,6 +1021,18 @@ export async function restoreSystemSnapshot(snapshot: SystemSnapshot) {
           fee: item.fee,
           minOrder: item.minOrder,
           status: toZoneStatus(item.status),
+        })),
+      });
+    }
+
+    if (snapshot.data.taxes.length > 0) {
+      await client.taxRate.createMany({
+        data: snapshot.data.taxes.map((item) => ({
+          id: item.id,
+          name: item.name,
+          rate: item.rate,
+          isDefault: item.isDefault,
+          isActive: item.isActive,
         })),
       });
     }
@@ -1132,8 +1201,11 @@ export async function restoreSystemSnapshot(snapshot: SystemSnapshot) {
           driverId: item.driverId,
           tableId: item.tableId,
           discount: item.discount,
+          taxRate: item.taxRate,
+          taxAmount: item.taxAmount,
           payment: toPaymentMethod(item.payment),
           notes: item.notes,
+          receiptSnapshot: (item.receiptSnapshot ?? null) as Prisma.InputJsonValue | null,
           createdAt,
           updatedAt,
         });
@@ -1229,6 +1301,7 @@ export function summarizeSnapshot(snapshot: SystemSnapshot) {
     categories: snapshot.data.categories.length,
     materials: snapshot.data.materials.length,
     products: snapshot.data.products.length,
+    taxes: snapshot.data.taxes.length,
     suppliers: snapshot.data.suppliers.length,
     orders: snapshot.data.orders.length,
     sales: snapshot.data.sales.length,

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/server/db";
+import { Prisma } from "@prisma/client";
 import { requireAuth } from "@/server/auth/guards";
 import { HttpError, jsonError, jsonOk, readJson } from "@/server/http";
 import { backupCreateSchema } from "@/server/validation/schemas";
@@ -25,7 +26,12 @@ export async function POST(request: NextRequest) {
       throw new HttpError(500, "backup_reference_failed", "Could not generate backup reference");
     }
 
-    const storagePath = await writeBackupFile(reference, content);
+    let storagePath: string | null = null;
+    try {
+      storagePath = await writeBackupFile(reference, content);
+    } catch {
+      storagePath = null;
+    }
 
     try {
       const record = await db.backupRecord.create({
@@ -34,6 +40,7 @@ export async function POST(request: NextRequest) {
           status: "COMPLETED",
           sizeBytes,
           storagePath,
+          payload: snapshot as Prisma.InputJsonValue,
           note: payload.note?.trim() || "نسخة احتياطية يدوية",
           createdById: auth.user.id,
         },

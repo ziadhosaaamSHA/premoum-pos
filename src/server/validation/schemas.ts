@@ -5,6 +5,18 @@ export const loginSchema = z.object({
   password: z.string().min(1).max(512),
 });
 
+export const ownerSignupSchema = z
+  .object({
+    fullName: z.string().min(2).max(120),
+    email: z.string().email().max(255),
+    password: z.string().min(10).max(512),
+    confirmPassword: z.string().min(10).max(512),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: "Password confirmation does not match",
+    path: ["confirmPassword"],
+  });
+
 export const trialResetPasswordSchema = z
   .object({
     email: z.string().email().max(255),
@@ -49,6 +61,33 @@ export const userUpdateSchema = z.object({
 export const profileUpdateSchema = z.object({
   fullName: z.string().min(2).max(120).optional(),
   phone: z.string().min(5).max(30).nullable().optional(),
+  avatarUrl: z.string().max(2_000_000).nullable().optional(),
+});
+
+export const passwordChangeSchema = z.object({
+  password: z.string().min(1).max(512),
+});
+
+export const brandingUpdateSchema = z.object({
+  brandName: z.string().min(2).max(120),
+  brandTagline: z.string().max(160).nullable().optional(),
+  logoUrl: z.string().max(2_000_000).nullable().optional(),
+  primaryColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
+  secondaryColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
+  backgroundColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
+  cardColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
+  borderColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
+  topbarColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
+  topbarTextColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
+  tableHeaderColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
+  tableHeaderTextColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
+  backgroundOpacity: z.number().min(0).max(100),
+  cardOpacity: z.number().min(0).max(100),
+  topbarOpacity: z.number().min(0).max(100),
+  tableHeaderOpacity: z.number().min(0).max(100),
+  sidebarOpacity: z.number().min(0).max(100),
+  sidebarColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
+  sidebarTextColor: z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
 });
 
 export const revokeInviteSchema = z.object({
@@ -67,6 +106,7 @@ export const orderCreateSchema = z.object({
   driverId: z.string().min(1).max(64).nullable().optional(),
   tableId: z.string().min(1).max(64).nullable().optional(),
   discount: z.number().min(0).max(1_000_000).default(0),
+  taxRate: z.number().min(0).max(100).optional(),
   payment: z.enum(["cash", "card", "wallet", "mixed"]),
   notes: z.string().max(500).nullable().optional(),
   items: z.array(posOrderItemSchema).min(1).max(200),
@@ -89,6 +129,20 @@ export const tableUpdateSchema = z.object({
   number: z.number().int().min(1).max(10_000).optional(),
   status: z.enum(["empty", "occupied"]).optional(),
   orderId: z.string().min(1).max(64).nullable().optional(),
+});
+
+export const taxCreateSchema = z.object({
+  name: z.string().min(1).max(120),
+  rate: z.number().min(0).max(100),
+  isDefault: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const taxUpdateSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  rate: z.number().min(0).max(100).optional(),
+  isDefault: z.boolean().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export const salesCreateSchema = z.object({
@@ -340,3 +394,13 @@ export const backupImportSchema = z.object({
 export const systemResetSchema = z.object({
   scope: z.enum(["transactions", "operational"]),
 });
+
+export const systemFactoryResetSchema = z
+  .object({
+    confirmText: z.string().min(2).max(200),
+    confirmAck: z.boolean(),
+  })
+  .refine((value) => value.confirmAck, {
+    message: "Confirmation is required",
+    path: ["confirmAck"],
+  });

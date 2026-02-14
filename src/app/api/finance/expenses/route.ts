@@ -14,7 +14,12 @@ export async function GET(request: NextRequest) {
     });
 
     return jsonOk({
-      expenses: expenses.map((expense) => mapExpense(expense)),
+      expenses: expenses.map((expense) => ({
+        ...mapExpense(expense),
+        source: "manual",
+        sourceId: expense.id,
+        readonly: false,
+      })),
     });
   } catch (error) {
     return jsonError(error);
@@ -42,7 +47,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return jsonOk({ expense: mapExpense(expense) }, { status: 201 });
+    const mapped = mapExpense(expense);
+    return jsonOk(
+      {
+        expense: {
+          ...mapped,
+          source: "manual",
+          sourceId: expense.id,
+          readonly: false,
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     return jsonError(error);
   }

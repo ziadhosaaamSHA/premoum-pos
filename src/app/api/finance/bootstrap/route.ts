@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, PurchaseStatus } from "@prisma/client";
 import { db } from "@/server/db";
 import { requireAuth } from "@/server/auth/guards";
 import { jsonError, jsonOk } from "@/server/http";
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth(request, { allPermissions: ["finance:view"] });
 
-    const [products, orders, expenses] = await Promise.all([
+    const [products, orders, expenses, purchases] = await Promise.all([
       db.product.findMany({
         select: {
           id: true,
@@ -80,6 +80,25 @@ export async function GET(request: NextRequest) {
       db.expense.findMany({
         orderBy: { date: "desc" },
       }),
+      db.purchase.findMany({
+        where: {
+          status: PurchaseStatus.POSTED,
+        },
+        orderBy: { date: "desc" },
+        include: {
+          supplier: {
+            select: { id: true, name: true },
+          },
+          items: {
+            orderBy: { id: "asc" },
+            include: {
+              material: {
+                select: { id: true, name: true },
+              },
+            },
+          },
+        },
+      }),
     ]);
 
     const productCostMap = buildProductCostMap(products);
@@ -94,7 +113,33 @@ export async function GET(request: NextRequest) {
     const dayTotals = sumOrderFinancials(dayOrders, productCostMap);
     const weekTotals = sumOrderFinancials(weekOrders, productCostMap);
 
-    const expensesTotal = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+    const manualExpenses = expenses.map((expense) => ({
+      ...mapExpense(expense),
+      source: "manual" as const,
+      sourceId: expense.id,
+      readonly: false,
+    }));
+    const purchaseExpenses = purchases.map((purchase) => {
+      const firstItem = purchase.items[0];
+      return {
+        id: `purchase-${purchase.id}`,
+        date: purchase.date.toISOString().slice(0, 10),
+        title: firstItem?.material?.name
+          ? `مشتريات مخزون - ${firstItem.material.name}`
+          : `مشتريات مخزون (${purchase.code})`,
+        vendor: purchase.supplier?.name || "—",
+        amount: Number(purchase.total),
+        notes: purchase.notes,
+        source: "purchase" as const,
+        sourceId: purchase.id,
+        readonly: true,
+      };
+    });
+    const expenseRows = [...manualExpenses, ...purchaseExpenses].sort((a, b) => b.date.localeCompare(a.date));
+
+    const expensesTotal =
+      manualExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0) +
+      purchaseExpenses.reduce((sum, purchase) => sum + Number(purchase.amount), 0);
     const profit = totals.revenue - totals.cogs - expensesTotal;
 
     const categoryMap = new Map(products.map((product) => [product.id, product.category]));
@@ -155,8 +200,8 @@ export async function GET(request: NextRequest) {
     }
 
     const todayDateKey = toDateKey(now);
-    const dayExpenses = expenses
-      .filter((expense) => expense.date.toISOString().slice(0, 10) === todayDateKey)
+    const dayExpenses = expenseRows
+      .filter((expense) => expense.date === todayDateKey)
       .reduce((sum, expense) => sum + Number(expense.amount), 0);
 
     const shiftRows = Array.from(shiftMap.values()).map((row) => ({
@@ -186,7 +231,7 @@ export async function GET(request: NextRequest) {
           total: weekTotals.total,
         },
       ],
-      expenses: expenses.map((expense) => mapExpense(expense)),
+      expenses: expenseRows,
       profitInsights: {
         totalProfit: profit,
         margin: totals.revenue > 0 ? (profit / totals.revenue) * 100 : 0,

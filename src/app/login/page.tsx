@@ -3,11 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useBranding } from "@/context/BrandingContext";
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh } = useAuth();
+  const { branding } = useBranding();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -110,8 +112,8 @@ export default function LoginPage() {
   return (
     <section className="auth-card">
       <div className="auth-brand">
-        <h1>Premium POS</h1>
-        <p>تسجيل دخول المستخدمين المعتمدين</p>
+        <h1>{branding.brandName}</h1>
+        <p>{branding.brandTagline || "تسجيل دخول المستخدمين المعتمدين"}</p>
       </div>
 
       <form className="form" onSubmit={handleSubmit}>

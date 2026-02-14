@@ -32,6 +32,9 @@ export const pageMeta = navItems.reduce(
 );
 
 export function getPageMeta(pathname: string) {
+  if (pathname === "/notifications" || pathname.startsWith("/notifications/")) {
+    return ["التنبيهات", "تنبيهات المخزون والطلبات والمبيعات"] as [string, string];
+  }
   if (pageMeta[pathname]) return pageMeta[pathname];
   const found = navItems.find((item) => pathname.startsWith(item.href));
   if (found) return [found.label, found.subtitle] as [string, string];
@@ -39,6 +42,12 @@ export function getPageMeta(pathname: string) {
 }
 
 export function getRequiredPermission(pathname: string) {
+  if (pathname === "/setup" || pathname.startsWith("/setup/")) {
+    return "settings:manage";
+  }
+  if (pathname === "/notifications" || pathname.startsWith("/notifications/")) {
+    return "dashboard:view";
+  }
   const found = navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
   return found?.permission ?? null;
 }

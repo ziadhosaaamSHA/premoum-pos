@@ -17,6 +17,13 @@ const saleInclude = {
       totalPrice: true,
     },
   },
+  order: {
+    select: {
+      id: true,
+      code: true,
+      receiptSnapshot: true,
+    },
+  },
 } as const;
 
 function parseStatus(value: string | null) {

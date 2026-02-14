@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/server/db";
 import { requireAuth } from "@/server/auth/guards";
 import { createInvite } from "@/server/auth/invites";
-import { jsonError, jsonOk, readJson } from "@/server/http";
+import { getRequestOrigin, jsonError, jsonOk, readJson } from "@/server/http";
 import { inviteCreateSchema } from "@/server/validation/schemas";
 
 export async function GET(request: NextRequest) {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       createdById: auth.user.id,
     });
 
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    const appUrl = getRequestOrigin(request);
     const inviteLink = `${appUrl}/accept-invite?token=${encodeURIComponent(token)}`;
 
     return jsonOk({

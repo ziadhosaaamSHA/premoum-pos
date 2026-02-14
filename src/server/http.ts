@@ -47,3 +47,13 @@ export function getClientIp(request: NextRequest) {
   if (forwarded) return forwarded.split(",")[0].trim();
   return request.headers.get("x-real-ip") || "unknown";
 }
+
+export function getRequestOrigin(request: NextRequest) {
+  const envUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (envUrl) return envUrl.replace(/\/+$/, "");
+  const proto = request.headers.get("x-forwarded-proto") || request.nextUrl.protocol.replace(":", "");
+  const host =
+    request.headers.get("x-forwarded-host") || request.headers.get("host") || request.nextUrl.host;
+  if (host) return `${proto}://${host}`;
+  return request.nextUrl.origin;
+}

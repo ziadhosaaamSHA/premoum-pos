@@ -7,6 +7,7 @@ export type AuthUser = {
   email: string;
   fullName: string;
   phone: string | null;
+  avatarUrl?: string | null;
   status: "INVITED" | "ACTIVE" | "SUSPENDED";
   isOwner: boolean;
   roles: string[];

@@ -15,6 +15,7 @@ export type OrderMetricSource = {
   status: string;
   type: string;
   discount: unknown;
+  taxAmount?: unknown;
   createdAt: Date;
   zone: {
     fee: unknown;
@@ -64,8 +65,9 @@ export function calcOrderFinancials(order: OrderMetricSource, productCostMap: Ma
   }, 0);
 
   const discount = Number(order.discount || 0);
+  const taxAmount = Number(order.taxAmount || 0);
   const deliveryFee = order.type === "DELIVERY" ? Number(order.zone?.fee || 0) : 0;
-  const total = Math.max(0, subtotal + deliveryFee - discount);
+  const total = Math.max(0, subtotal + deliveryFee + taxAmount - discount);
   const profit = subtotal - cogs - discount;
 
   return { subtotal, cogs, deliveryFee, discount, total, profit };
