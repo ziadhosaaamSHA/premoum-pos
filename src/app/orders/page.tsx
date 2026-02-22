@@ -910,11 +910,11 @@ export default function OrdersPage() {
                       className="primary"
                       type="button"
                       onClick={() => {
-                        setSelectedOrderId(tableOrder.id);
+                        router.push(`/pos?tableId=${selectedTable.id}`);
                         setSelectedTableId(null);
                       }}
                     >
-                      عرض تفاصيل الطلب
+                      فتح الطلب في الكاشير
                     </button>
                     <button
                       className="ghost"

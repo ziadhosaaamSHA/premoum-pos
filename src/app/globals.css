@@ -17,6 +17,17 @@
   --color-table-head-ink: #6b6b6b;
   --color-sidebar: #1f2a2b;
   --color-sidebar-ink: #f6f3ef;
+  --color-hover-subtle: rgba(0, 0, 0, 0.06);
+  --color-danger-border: rgba(220, 38, 38, 0.26);
+  --color-danger-bg: rgba(254, 226, 226, 0.78);
+  --color-danger-bg-soft: rgba(254, 242, 242, 0.9);
+  --color-danger-ink: #b91c1c;
+  --color-warning-border: rgba(217, 119, 6, 0.24);
+  --color-warning-bg: rgba(254, 243, 199, 0.78);
+  --color-warning-ink: #92400e;
+  --color-info-border: rgba(2, 132, 199, 0.24);
+  --color-info-bg: rgba(224, 242, 254, 0.78);
+  --color-info-ink: #075985;
   --shadow-card: 0 20px 40px rgba(17, 17, 17, 0.08);
   --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.06);
   --radius-control: 14px;
@@ -39,6 +50,17 @@
   --color-table-head-ink: #a9b0b7;
   --color-sidebar: #0f141a;
   --color-sidebar-ink: #f3f4f6;
+  --color-hover-subtle: rgba(255, 255, 255, 0.08);
+  --color-danger-border: rgba(248, 113, 113, 0.38);
+  --color-danger-bg: rgba(127, 29, 29, 0.3);
+  --color-danger-bg-soft: rgba(127, 29, 29, 0.2);
+  --color-danger-ink: #fecaca;
+  --color-warning-border: rgba(251, 191, 36, 0.34);
+  --color-warning-bg: rgba(120, 53, 15, 0.3);
+  --color-warning-ink: #fcd34d;
+  --color-info-border: rgba(56, 189, 248, 0.34);
+  --color-info-bg: rgba(12, 74, 110, 0.3);
+  --color-info-ink: #7dd3fc;
   --shadow-card: 0 18px 40px rgba(0, 0, 0, 0.45);
   --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.35);
   --app-bg: radial-gradient(circle at 100% 0, #1b2229 0%, #0f1114 45%),
@@ -448,7 +470,7 @@
   }
 
   .notif-action-btn:hover {
-    @apply bg-black/5;
+    background: var(--color-hover-subtle);
   }
 
   .notif-action-btn:disabled {
@@ -456,7 +478,9 @@
   }
 
   .notif-action-btn.danger {
-    @apply border-red-200 text-red-600 bg-red-50;
+    border-color: var(--color-danger-border);
+    color: var(--color-danger-ink);
+    background: var(--color-danger-bg-soft);
   }
 
   .notif-meta {
@@ -503,11 +527,11 @@
   }
 
   .profile-item:hover {
-    @apply bg-black/5;
+    background: var(--color-hover-subtle);
   }
 
   .profile-item.danger {
-    @apply text-red-500;
+    color: var(--color-danger-ink);
   }
 
   .avatar {
@@ -621,7 +645,9 @@
   }
 
   .badge.danger {
-    @apply bg-red-100 text-red-700;
+    border: 1px solid var(--color-danger-border);
+    background: var(--color-danger-bg-soft);
+    color: var(--color-danger-ink);
   }
 
   .badge.neutral {
@@ -638,15 +664,18 @@
   }
 
   .alert-card.low_stock {
-    @apply border-amber-200 bg-amber-50;
+    border-color: var(--color-warning-border);
+    background: var(--color-warning-bg);
   }
 
   .alert-card.warning {
-    @apply border-red-200 bg-red-50;
+    border-color: var(--color-danger-border);
+    background: var(--color-danger-bg);
   }
 
   .alert-card.info {
-    @apply border-sky-200 bg-sky-50;
+    border-color: var(--color-info-border);
+    background: var(--color-info-bg);
   }
 
   .alert-icon {
@@ -676,7 +705,8 @@
   }
 
   .alert-dismiss:hover {
-    @apply bg-red-50 text-red-600;
+    background: var(--color-danger-bg-soft);
+    color: var(--color-danger-ink);
   }
 
   .alert-time {
@@ -1479,15 +1509,19 @@
   }
 
   .danger-zone {
-    @apply border border-red-200 bg-red-50/70 rounded-xl p-5;
+    @apply rounded-xl p-5;
+    border: 1px solid var(--color-danger-border);
+    background: color-mix(in oklab, var(--color-danger-bg) 78%, transparent);
   }
 
   .danger-zone h3 {
-    @apply text-red-600 mb-2;
+    @apply mb-2;
+    color: var(--color-danger-ink);
   }
 
   .danger-card {
-    @apply border border-red-200 bg-red-50/70;
+    border: 1px solid var(--color-danger-border);
+    background: color-mix(in oklab, var(--color-danger-bg) 78%, transparent);
   }
 
   .reset-steps {
@@ -1500,7 +1534,9 @@
   }
 
   .danger-box {
-    @apply border border-red-200 bg-red-50 p-4 text-sm;
+    @apply p-4 text-sm;
+    border: 1px solid var(--color-danger-border);
+    background: color-mix(in oklab, var(--color-danger-bg-soft) 86%, transparent);
     border-radius: var(--radius-control);
   }
 
@@ -1509,7 +1545,9 @@
   }
 
   .confirm-phrase {
-    @apply mt-2 border border-red-200 bg-card px-3 py-2 text-center font-bold text-red-700;
+    @apply mt-2 bg-card px-3 py-2 text-center font-bold;
+    border: 1px solid var(--color-danger-border);
+    color: var(--color-danger-ink);
     border-radius: var(--radius-control);
   }
 
