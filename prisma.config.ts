@@ -10,6 +10,8 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Prisma CLI (migrate/deploy) should prefer direct DB connection when available.
+    // Runtime app DB still uses DATABASE_URL in src/server/db.ts.
+    url: process.env["DIRECT_URL"] || process.env["DATABASE_URL"],
   },
 });
