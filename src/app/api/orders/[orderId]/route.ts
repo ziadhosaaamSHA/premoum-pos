@@ -194,6 +194,16 @@ export async function PATCH(
       }
 
       const nextStatus = payload.status ? toOrderStatus(payload.status) : order.status;
+      const canApplyPricingNow =
+        order.type !== OrderType.DINE_IN || nextStatus === OrderStatus.DELIVERED;
+
+      if (!canApplyPricingNow && (payload.discount !== undefined || payload.taxRate !== undefined)) {
+        throw new HttpError(
+          400,
+          "pricing_on_finish_only",
+          "Discount and extra fees for dine-in orders are applied only when finishing the table"
+        );
+      }
 
       if (payload.itemDeductions && payload.itemDeductions.length > 0) {
         if (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED) {
@@ -282,9 +292,13 @@ export async function PATCH(
       const nextDiscountRaw =
         payload.discount !== undefined ? Number(payload.discount) : Number(order.discount || 0);
       const nextDiscount = Math.min(subtotal, Math.max(0, nextDiscountRaw));
-      const orderTaxRate = Number(order.taxRate || 0);
-      const taxableBase = Math.max(0, subtotal - nextDiscount);
-      const nextTaxAmount = taxableBase * (orderTaxRate / 100);
+      const nextTaxRateRaw =
+        payload.taxRate !== undefined ? Number(payload.taxRate) : Number(order.taxRate || 0);
+      const nextTaxRate = Math.min(100, Math.max(0, nextTaxRateRaw));
+      const effectiveDiscount = canApplyPricingNow ? nextDiscount : 0;
+      const effectiveTaxRate = canApplyPricingNow ? nextTaxRate : 0;
+      const taxableBase = Math.max(0, subtotal - effectiveDiscount);
+      const nextTaxAmount = taxableBase * (effectiveTaxRate / 100);
 
       const updated = await tx.order.update({
         where: { id: order.id },
@@ -292,7 +306,16 @@ export async function PATCH(
           status: payload.status ? toOrderStatus(payload.status) : undefined,
           tableId,
           driverId: payload.driverId === undefined ? undefined : payload.driverId,
-          discount: payload.discount === undefined ? undefined : nextDiscount,
+          discount: canApplyPricingNow
+            ? payload.discount === undefined
+              ? undefined
+              : nextDiscount
+            : 0,
+          taxRate: canApplyPricingNow
+            ? payload.taxRate === undefined
+              ? undefined
+              : nextTaxRate
+            : 0,
           taxAmount: nextTaxAmount,
           notes: payload.notes === undefined ? undefined : payload.notes,
         },

@@ -1085,8 +1085,16 @@
     @apply flex flex-col gap-2;
   }
 
+  .field-title {
+    @apply flex items-center justify-between gap-2;
+  }
+
   .field label {
     @apply text-sm text-muted;
+  }
+
+  .action-btn.compact {
+    @apply w-8 h-8;
   }
 
   .field input,

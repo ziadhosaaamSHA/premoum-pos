@@ -118,6 +118,7 @@ export const orderUpdateSchema = z.object({
   tableId: z.string().min(1).max(64).nullable().optional(),
   driverId: z.string().min(1).max(64).nullable().optional(),
   discount: z.number().min(0).max(1_000_000).optional(),
+  taxRate: z.number().min(0).max(100).optional(),
   itemDeductions: z
     .array(
       z.object({

@@ -8,6 +8,7 @@ import { ApiError, apiRequest } from "@/lib/api";
 import { money } from "@/lib/format";
 import { buildReceiptSnapshot, ReceiptSnapshot } from "@/lib/receipt";
 import InlineModal from "@/components/ui/InlineModal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import ReceiptModal from "@/components/ui/ReceiptModal";
 
 type PosCategory = {
@@ -103,6 +104,12 @@ type FinishAdjustment = {
   deductQty: number;
 };
 
+type DeferredPricing = {
+  discountRate: number;
+  extraTaxRate: number;
+  locked: boolean;
+};
+
 export default function PosPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -135,8 +142,10 @@ export default function PosPage() {
   const [finishModalOpen, setFinishModalOpen] = useState(false);
   const [finishSubmitting, setFinishSubmitting] = useState(false);
   const [finishAdjustments, setFinishAdjustments] = useState<FinishAdjustment[]>([]);
+  const [deferredPricingByOrder, setDeferredPricingByOrder] = useState<Record<string, DeferredPricing>>({});
 
   const [submitting, setSubmitting] = useState(false);
+  const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptSnapshot | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
 
@@ -318,6 +327,38 @@ export default function PosPage() {
   const total = taxableBase + deliveryFee + taxAmount;
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
   const cartQtyMap = useMemo(() => new Map(cart.map((item) => [item.productId, item.qty])), [cart]);
+  const activeDeferredPricing = useMemo(
+    () => (appendToOrderId ? deferredPricingByOrder[appendToOrderId] || null : null),
+    [appendToOrderId, deferredPricingByOrder]
+  );
+  const activeOrderPricingLocked = Boolean(appendToOrderId && (activeDeferredPricing?.locked ?? false));
+
+  const projectedActiveOrder = useMemo(() => {
+    if (!appendToOrderId || !activeTableOrder) {
+      return {
+        subtotal: 0,
+        discount: 0,
+        taxRate: 0,
+        taxAmount: 0,
+        total: 0,
+      };
+    }
+
+    const subtotal = activeTableOrder.subtotal + cartSubtotal;
+    const discount = Math.min(subtotal, (subtotal * discountRate) / 100);
+    const base = Math.max(0, subtotal - discount);
+    const taxRate = combinedTaxRate;
+    const taxAmountValue = base * (taxRate / 100);
+    const totalValue = base + (activeTableOrder.deliveryFee || 0) + taxAmountValue;
+
+    return {
+      subtotal,
+      discount,
+      taxRate,
+      taxAmount: taxAmountValue,
+      total: totalValue,
+    };
+  }, [activeTableOrder, appendToOrderId, cartSubtotal, combinedTaxRate, discountRate]);
 
   const finishDeductedSubtotal = useMemo(
     () => finishAdjustments.reduce((sum, item) => sum + item.deductQty * item.unitPrice, 0),
@@ -329,24 +370,161 @@ export default function PosPage() {
       return {
         subtotal: 0,
         discount: 0,
+        taxRate: 0,
         taxAmount: 0,
         total: 0,
       };
     }
 
     const subtotal = Math.max(0, activeTableOrder.subtotal - finishDeductedSubtotal);
-    const discount = Math.min(subtotal, activeTableOrder.discount || 0);
+    const discount = Math.min(subtotal, (subtotal * discountRate) / 100);
     const base = Math.max(0, subtotal - discount);
-    const taxAmountValue = base * ((activeTableOrder.taxRate || 0) / 100);
+    const taxRate = combinedTaxRate;
+    const taxAmountValue = base * (taxRate / 100);
     const totalValue = base + (activeTableOrder.deliveryFee || 0) + taxAmountValue;
 
     return {
       subtotal,
       discount,
+      taxRate,
       taxAmount: taxAmountValue,
       total: totalValue,
     };
-  }, [activeTableOrder, finishDeductedSubtotal]);
+  }, [activeTableOrder, combinedTaxRate, discountRate, finishDeductedSubtotal]);
+
+  useEffect(() => {
+    if (!appendToOrderId || !activeTableOrder) return;
+
+    if (activeDeferredPricing) {
+      setDiscountRate(activeDeferredPricing.discountRate);
+      setExtraTaxRate(activeDeferredPricing.extraTaxRate);
+      return;
+    }
+
+    const subtotal = Math.max(0, activeTableOrder.subtotal || 0);
+    const derivedDiscountRate =
+      subtotal > 0 ? Number(((Number(activeTableOrder.discount || 0) / subtotal) * 100).toFixed(2)) : 0;
+    const derivedExtraTax = Math.max(0, Number((activeTableOrder.taxRate || 0) - defaultTaxRate));
+    const seeded: DeferredPricing = {
+      discountRate: derivedDiscountRate,
+      extraTaxRate: Number(derivedExtraTax.toFixed(2)),
+      locked: true,
+    };
+
+    setDeferredPricingByOrder((prev) => ({
+      ...prev,
+      [appendToOrderId]: seeded,
+    }));
+    setDiscountRate(seeded.discountRate);
+    setExtraTaxRate(seeded.extraTaxRate);
+  }, [activeDeferredPricing, activeTableOrder, appendToOrderId, defaultTaxRate]);
+
+  useEffect(() => {
+    if (appendToOrderId || orderType !== "dine_in") return;
+    setDiscountRate(0);
+    setExtraTaxRate(0);
+  }, [appendToOrderId, orderType]);
+
+  const setOrderDiscountRate = useCallback(
+    (value: number) => {
+      const normalized = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
+      setDiscountRate(normalized);
+      if (!appendToOrderId) return;
+      setDeferredPricingByOrder((prev) => ({
+        ...prev,
+        [appendToOrderId]: {
+          discountRate: normalized,
+          extraTaxRate: prev[appendToOrderId]?.extraTaxRate ?? extraTaxRate,
+          locked: prev[appendToOrderId]?.locked ?? false,
+        },
+      }));
+    },
+    [appendToOrderId, extraTaxRate]
+  );
+
+  const setOrderExtraTaxRate = useCallback(
+    (value: number) => {
+      const normalized = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
+      setExtraTaxRate(normalized);
+      if (!appendToOrderId) return;
+      setDeferredPricingByOrder((prev) => ({
+        ...prev,
+        [appendToOrderId]: {
+          discountRate: prev[appendToOrderId]?.discountRate ?? discountRate,
+          extraTaxRate: normalized,
+          locked: prev[appendToOrderId]?.locked ?? false,
+        },
+      }));
+    },
+    [appendToOrderId, discountRate]
+  );
+
+  const unlockOrderPricing = () => {
+    if (!appendToOrderId) return;
+    setDeferredPricingByOrder((prev) => ({
+      ...prev,
+      [appendToOrderId]: {
+        discountRate,
+        extraTaxRate,
+        locked: false,
+      },
+    }));
+  };
+
+  const validateBeforeSubmit = useCallback(() => {
+    if (cart.length === 0) return "السلة فارغة";
+    if (orderType === "delivery" && !zoneId) return "اختر نطاق التوصيل";
+    if (orderType === "dine_in" && !tableId) return "اختر طاولة أولاً";
+    if (orderType === "dine_in" && selectedTable?.status === "occupied" && !selectedTable.activeOrder) {
+      return "الطاولة مشغولة بدون طلب نشط، اربطها بطلب أولاً من صفحة الطلبيات";
+    }
+    return null;
+  }, [cart.length, orderType, zoneId, tableId, selectedTable]);
+
+  const submitConfirmContent = useMemo(() => {
+    if (appendToOrderId) {
+      return {
+        title: "تأكيد إضافة عناصر",
+        confirmLabel: "تأكيد الإضافة",
+        message: `سيتم إضافة ${cartCount} عنصر بإجمالي ${money(cartSubtotal)} إلى الطلب ${
+          selectedTable?.activeOrder?.code || ""
+        }.`,
+      };
+    }
+
+    if (orderType === "dine_in") {
+      return {
+        title: "تأكيد الطلب",
+        confirmLabel: "تأكيد الطلب",
+        message: `سيتم إنشاء طلب جديد على ${selectedTable?.name || "الطاولة"} (${
+          selectedTable?.number ?? "-"
+        }) بقيمة ${money(total)}.`,
+      };
+    }
+
+    if (orderType === "delivery") {
+      return {
+        title: "تأكيد طلب التوصيل",
+        confirmLabel: "تأكيد الطلب",
+        message: `سيتم تأكيد الطلب وإنشاء فاتورة مدفوعة مباشرة بإجمالي ${money(total)}.`,
+      };
+    }
+
+    return {
+      title: "تأكيد طلب تيك أواي",
+      confirmLabel: "تأكيد الطلب",
+      message: `سيتم تأكيد الطلب وإنشاء فاتورة مدفوعة مباشرة بإجمالي ${money(total)}.`,
+    };
+  }, [appendToOrderId, cartCount, cartSubtotal, orderType, selectedTable, total]);
+
+  const openSubmitConfirmation = () => {
+    const validationError = validateBeforeSubmit();
+    if (validationError) {
+      pushToast(validationError, "error");
+      return;
+    }
+    setSubmitConfirmOpen(true);
+  };
 
   const getProductAvailability = useCallback(
     (product: PosProduct) => {
@@ -416,8 +594,10 @@ export default function PosPage() {
   const clearCart = () => {
     setCart([]);
     setLastAddedProductId(null);
-    setDiscountRate(0);
-    setExtraTaxRate(0);
+    if (!appendToOrderId) {
+      setDiscountRate(0);
+      setExtraTaxRate(0);
+    }
     pushToast("تم تفريغ السلة", "success");
   };
 
@@ -510,6 +690,8 @@ export default function PosPage() {
         method: "PATCH",
         body: JSON.stringify({
           status: "delivered",
+          discount: finishPreview.discount,
+          taxRate: finishPreview.taxRate,
           itemDeductions: deductions,
         }),
       });
@@ -547,6 +729,11 @@ export default function PosPage() {
       setFinishAdjustments([]);
       setReceipt(snapshot);
       setReceiptOpen(true);
+      setDeferredPricingByOrder((prev) => {
+        const next = { ...prev };
+        delete next[finalized.id];
+        return next;
+      });
       pushToast(`تم إنهاء الطاولة وحفظ الفاتورة ${finalized.code}`, "success");
 
       await fetchBootstrap();
@@ -563,28 +750,18 @@ export default function PosPage() {
   };
 
   const submitOrder = async () => {
-    if (cart.length === 0) {
-      pushToast("السلة فارغة", "error");
+    if (submitting) return;
+
+    const validationError = validateBeforeSubmit();
+    if (validationError) {
+      pushToast(validationError, "error");
       return;
     }
 
-    if (orderType === "delivery" && !zoneId) {
-      pushToast("اختر نطاق التوصيل", "error");
-      return;
-    }
-
-    if (orderType === "dine_in" && !tableId) {
-      pushToast("اختر طاولة أولاً", "error");
-      return;
-    }
-
-    if (orderType === "dine_in" && selectedTable?.status === "occupied" && !selectedTable.activeOrder) {
-      pushToast("الطاولة مشغولة بدون طلب نشط، اربطها بطلب أولاً من صفحة الطلبيات", "error");
-      return;
-    }
-
+    setSubmitConfirmOpen(false);
     setSubmitting(true);
     try {
+      const isDineIn = orderType === "dine_in";
       const payload = {
         type: orderType,
         customerName:
@@ -596,21 +773,18 @@ export default function PosPage() {
         zoneId: orderType === "delivery" ? zoneId : null,
         tableId: orderType === "dine_in" ? tableId : null,
         appendToOrderId: orderType === "dine_in" ? appendToOrderId : null,
-        discount: discountAmount,
-        taxRate: combinedTaxRate,
+        discount: isDineIn ? 0 : discountAmount,
+        taxRate: isDineIn ? 0 : combinedTaxRate,
         payment,
         items: cart.map((item) => ({ productId: item.productId, quantity: item.qty })),
       };
 
       const isAppending = Boolean(payload.appendToOrderId);
 
-      const result = await apiRequest<{ order: { code: string; receiptSnapshot?: ReceiptSnapshot | null } }>(
-        "/api/orders",
-        {
-          method: "POST",
-          body: JSON.stringify(payload),
-        }
-      );
+      const result = await apiRequest<{ order: PosOrder }>("/api/orders", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
 
       if (orderType !== "dine_in") {
         const fallbackItems = cart.map((item) => {
@@ -651,8 +825,23 @@ export default function PosPage() {
 
       setCart([]);
       setLastAddedProductId(null);
-      setDiscountRate(0);
-      setExtraTaxRate(0);
+
+      if (orderType === "dine_in") {
+        const targetOrderId = isAppending ? appendToOrderId : result.order.id;
+        if (targetOrderId) {
+          setDeferredPricingByOrder((prev) => ({
+            ...prev,
+            [targetOrderId]: {
+              discountRate,
+              extraTaxRate,
+              locked: true,
+            },
+          }));
+        }
+      } else {
+        setDiscountRate(0);
+        setExtraTaxRate(0);
+      }
 
       if (orderType === "dine_in") {
         pushToast(
@@ -944,14 +1133,28 @@ export default function PosPage() {
               )}
 
               <div className="field">
-                <label>خصم (%)</label>
+                <div className="field-title">
+                  <label>خصم (%)</label>
+                  {appendToOrderId && activeOrderPricingLocked ? (
+                    <button
+                      type="button"
+                      className="action-btn edit compact"
+                      onClick={unlockOrderPricing}
+                      aria-label="تعديل الخصم والرسوم"
+                      title="تعديل الخصم والرسوم"
+                    >
+                      <i className="bx bx-edit"></i>
+                    </button>
+                  ) : null}
+                </div>
                 <input
                   type="number"
                   value={discountRate}
                   min={0}
                   max={100}
                   step={0.5}
-                  onChange={(event) => setDiscountRate(Number(event.target.value || 0))}
+                  disabled={Boolean(appendToOrderId && activeOrderPricingLocked)}
+                  onChange={(event) => setOrderDiscountRate(Number(event.target.value || 0))}
                 />
               </div>
 
@@ -970,9 +1173,18 @@ export default function PosPage() {
                   min={0}
                   max={100}
                   step={0.5}
-                  onChange={(event) => setExtraTaxRate(Number(event.target.value || 0))}
+                  disabled={Boolean(appendToOrderId && activeOrderPricingLocked)}
+                  onChange={(event) => setOrderExtraTaxRate(Number(event.target.value || 0))}
                 />
               </div>
+
+              {appendToOrderId ? (
+                <p className="hint">
+                  {activeOrderPricingLocked
+                    ? "تم قفل الخصم والرسوم لهذا الطلب. استخدم أيقونة التعديل لفتحها."
+                    : "سيتم تطبيق الخصم والرسوم فقط عند إنهاء الطاولة."}
+                </p>
+              ) : null}
 
               <div className="field">
                 <label>طريقة الدفع</label>
@@ -997,26 +1209,59 @@ export default function PosPage() {
             </div>
 
             <div className="cart-summary">
-              <div className="summary-row">
-                <span>الإجمالي قبل الخصم</span>
-                <strong>{money(cartSubtotal)}</strong>
-              </div>
-              <div className="summary-row">
-                <span>خصم ({discountRate.toFixed(1)}%)</span>
-                <strong>{money(discountAmount)}</strong>
-              </div>
-              <div className="summary-row">
-                <span>ضريبة ({combinedTaxRate.toFixed(2)}%)</span>
-                <strong>{money(taxAmount)}</strong>
-              </div>
-              <div className="summary-row">
-                <span>رسوم التوصيل</span>
-                <strong>{money(deliveryFee)}</strong>
-              </div>
-              <div className="summary-row highlight">
-                <span>الإجمالي النهائي</span>
-                <strong>{money(total)}</strong>
-              </div>
+              {appendToOrderId ? (
+                <div className="summary-row">
+                  <span>إجمالي الطلب الحالي</span>
+                  <strong>{money(activeTableOrder?.total || 0)}</strong>
+                </div>
+              ) : null}
+              {appendToOrderId ? (
+                <>
+                  <div className="summary-row">
+                    <span>إضافات جديدة على الطلب</span>
+                    <strong>{money(cartSubtotal)}</strong>
+                  </div>
+                  <div className="summary-row">
+                    <span>الإجمالي قبل الخصم (نهائي)</span>
+                    <strong>{money(projectedActiveOrder.subtotal)}</strong>
+                  </div>
+                  <div className="summary-row">
+                    <span>خصم نهائي ({discountRate.toFixed(1)}%)</span>
+                    <strong>{money(projectedActiveOrder.discount)}</strong>
+                  </div>
+                  <div className="summary-row">
+                    <span>ضريبة نهائية ({projectedActiveOrder.taxRate.toFixed(2)}%)</span>
+                    <strong>{money(projectedActiveOrder.taxAmount)}</strong>
+                  </div>
+                  <div className="summary-row highlight">
+                    <span>إجمالي نهائي متوقع</span>
+                    <strong>{money(projectedActiveOrder.total)}</strong>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="summary-row">
+                    <span>الإجمالي قبل الخصم</span>
+                    <strong>{money(cartSubtotal)}</strong>
+                  </div>
+                  <div className="summary-row">
+                    <span>خصم ({discountRate.toFixed(1)}%)</span>
+                    <strong>{money(discountAmount)}</strong>
+                  </div>
+                  <div className="summary-row">
+                    <span>ضريبة ({combinedTaxRate.toFixed(2)}%)</span>
+                    <strong>{money(taxAmount)}</strong>
+                  </div>
+                  <div className="summary-row">
+                    <span>رسوم التوصيل</span>
+                    <strong>{money(deliveryFee)}</strong>
+                  </div>
+                  <div className="summary-row highlight">
+                    <span>الإجمالي النهائي</span>
+                    <strong>{money(total)}</strong>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -1031,7 +1276,7 @@ export default function PosPage() {
                 <button
                   className="primary"
                   type="button"
-                  onClick={submitOrder}
+                  onClick={openSubmitConfirmation}
                   disabled={submitting || cart.length === 0 || activeOrderLoading}
                 >
                   <i className="bx bx-plus-circle"></i>
@@ -1052,7 +1297,7 @@ export default function PosPage() {
               <button
                 className="primary"
                 type="button"
-                onClick={submitOrder}
+                onClick={openSubmitConfirmation}
                 disabled={submitting || cart.length === 0}
               >
                 <i className="bx bx-check-circle"></i>
@@ -1151,11 +1396,11 @@ export default function PosPage() {
                 <strong>{money(finishPreview.subtotal)}</strong>
               </div>
               <div className="summary-row">
-                <span>الخصم</span>
+                <span>الخصم النهائي ({discountRate.toFixed(1)}%)</span>
                 <strong>{money(finishPreview.discount)}</strong>
               </div>
               <div className="summary-row">
-                <span>الضريبة</span>
+                <span>الضريبة النهائية ({finishPreview.taxRate.toFixed(2)}%)</span>
                 <strong>{money(finishPreview.taxAmount)}</strong>
               </div>
               <div className="summary-row highlight">
@@ -1168,6 +1413,15 @@ export default function PosPage() {
           <p className="hint">تعذر تحميل تفاصيل الطلب النشط.</p>
         )}
       </InlineModal>
+
+      <ConfirmModal
+        open={submitConfirmOpen}
+        title={submitConfirmContent.title}
+        message={submitConfirmContent.message}
+        confirmLabel={submitting ? "جارٍ التأكيد..." : submitConfirmContent.confirmLabel}
+        onClose={() => setSubmitConfirmOpen(false)}
+        onConfirm={() => void submitOrder()}
+      />
 
       <ReceiptModal open={receiptOpen} receipt={receipt} onClose={() => setReceiptOpen(false)} />
     </section>

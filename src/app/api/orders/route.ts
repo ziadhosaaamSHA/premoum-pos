@@ -81,8 +81,10 @@ export async function POST(request: NextRequest) {
 
     const orderType = toOrderType(payload.type);
     const payment = toPaymentMethod(payload.payment);
-    const discount = Number(payload.discount || 0);
-    const taxRate = Math.max(0, Number(payload.taxRate || 0));
+    const requestedDiscount = Number(payload.discount || 0);
+    const requestedTaxRate = Math.max(0, Number(payload.taxRate || 0));
+    const discount = orderType === OrderType.DINE_IN ? 0 : requestedDiscount;
+    const taxRate = orderType === OrderType.DINE_IN ? 0 : requestedTaxRate;
     const appendToOrderId = payload.appendToOrderId || null;
 
     if (orderType === OrderType.DELIVERY && !payload.zoneId) {
@@ -216,12 +218,19 @@ export async function POST(request: NextRequest) {
         const subtotal = Number(totals._sum.totalPrice || 0);
         const existingDiscount = Number(existingOrder.discount || 0);
         const existingTaxRate = Number(existingOrder.taxRate || 0);
-        const taxableBase = Math.max(0, subtotal - existingDiscount);
-        const taxAmount = taxableBase * (existingTaxRate / 100);
+        const shouldDeferPricing = existingOrder.type === OrderType.DINE_IN;
+        const appliedDiscount = shouldDeferPricing
+          ? 0
+          : Math.min(subtotal, Math.max(0, existingDiscount));
+        const appliedTaxRate = shouldDeferPricing ? 0 : Math.min(100, Math.max(0, existingTaxRate));
+        const taxableBase = Math.max(0, subtotal - appliedDiscount);
+        const taxAmount = taxableBase * (appliedTaxRate / 100);
 
         const orderWithTotals = await tx.order.update({
           where: { id: existingOrder.id },
           data: {
+            discount: appliedDiscount,
+            taxRate: appliedTaxRate,
             taxAmount,
           },
           include: orderInclude,
