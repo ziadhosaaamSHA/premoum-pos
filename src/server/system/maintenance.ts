@@ -44,6 +44,7 @@ export type SystemSnapshot = {
       categoryId: string;
       price: number;
       isActive: boolean;
+      imageUrl: string | null;
     }>;
     recipeItems: SnapshotEntity<{
       id: string;
@@ -375,6 +376,7 @@ export function parseSystemSnapshot(payload: unknown): SystemSnapshot | null {
       categoryId: toText(row.categoryId),
       price: toNumber(row.price),
       isActive: toBoolean(row.isActive),
+      imageUrl: toNullableText(row.imageUrl),
     })),
     recipeItems: ensureArray(maybeData.recipeItems).map((row) => ({
       id: toText(row.id),
@@ -626,6 +628,7 @@ export async function buildSystemSnapshot(client: DbClient = db): Promise<System
         categoryId: item.categoryId,
         price: Number(item.price),
         isActive: item.isActive,
+        imageUrl: item.imageUrl,
       })),
       recipeItems: recipeItems.map((item) => ({
         id: item.id,
@@ -920,6 +923,7 @@ export async function restoreSystemSnapshot(snapshot: SystemSnapshot) {
           categoryId: item.categoryId,
           price: item.price,
           isActive: item.isActive,
+          imageUrl: item.imageUrl,
         })),
       });
     }

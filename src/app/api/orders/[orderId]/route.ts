@@ -9,7 +9,9 @@ import {
   mapOrder,
   toOrderStatus,
 } from "@/server/pos/mappers";
+import { fetchBranding } from "@/server/settings/branding";
 import { orderUpdateSchema } from "@/server/validation/schemas";
+import { buildReceiptSnapshot } from "@/lib/receipt";
 
 const orderInclude = {
   items: {
@@ -140,6 +142,7 @@ export async function PATCH(
     const auth = await requireAuth(request, { allPermissions: ["orders:manage"] });
     const { orderId } = await context.params;
     const payload = await readJson(request, orderUpdateSchema);
+    const branding = await fetchBranding(db);
 
     const updatedOrder = await db.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
@@ -192,12 +195,105 @@ export async function PATCH(
 
       const nextStatus = payload.status ? toOrderStatus(payload.status) : order.status;
 
+      if (payload.itemDeductions && payload.itemDeductions.length > 0) {
+        if (order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED) {
+          throw new HttpError(400, "order_finalized", "Finalized orders cannot be adjusted");
+        }
+
+        const requestedItemIds = Array.from(
+          new Set(payload.itemDeductions.map((item) => item.itemId))
+        );
+
+        const orderItems = await tx.orderItem.findMany({
+          where: {
+            orderId: order.id,
+            id: { in: requestedItemIds },
+          },
+          include: {
+            product: {
+              select: {
+                id: true,
+                recipeItems: {
+                  select: {
+                    materialId: true,
+                    quantity: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        if (orderItems.length !== requestedItemIds.length) {
+          throw new HttpError(400, "invalid_deduction_items", "One or more deducted items are invalid");
+        }
+
+        const orderItemMap = new Map(orderItems.map((item) => [item.id, item]));
+        const materialRestore = new Map<string, number>();
+
+        for (const deduction of payload.itemDeductions) {
+          const line = orderItemMap.get(deduction.itemId);
+          if (!line) {
+            throw new HttpError(400, "invalid_deduction_item", "Invalid deduction line");
+          }
+
+          const deductQty = Math.min(line.quantity, deduction.quantity);
+          if (deductQty <= 0) continue;
+
+          const remainingQty = line.quantity - deductQty;
+          if (remainingQty <= 0) {
+            await tx.orderItem.delete({ where: { id: line.id } });
+          } else {
+            await tx.orderItem.update({
+              where: { id: line.id },
+              data: {
+                quantity: remainingQty,
+                totalPrice: Number(line.unitPrice) * remainingQty,
+              },
+            });
+          }
+
+          for (const recipe of line.product?.recipeItems || []) {
+            const restoreQty = Number(recipe.quantity || 0) * deductQty;
+            if (restoreQty > 0) {
+              materialRestore.set(
+                recipe.materialId,
+                (materialRestore.get(recipe.materialId) || 0) + restoreQty
+              );
+            }
+          }
+        }
+
+        for (const [materialId, qty] of materialRestore.entries()) {
+          await tx.material.update({
+            where: { id: materialId },
+            data: {
+              stock: { increment: qty },
+            },
+          });
+        }
+      }
+
+      const subtotalAggregate = await tx.orderItem.aggregate({
+        where: { orderId: order.id },
+        _sum: { totalPrice: true },
+      });
+      const subtotal = Number(subtotalAggregate._sum.totalPrice || 0);
+      const nextDiscountRaw =
+        payload.discount !== undefined ? Number(payload.discount) : Number(order.discount || 0);
+      const nextDiscount = Math.min(subtotal, Math.max(0, nextDiscountRaw));
+      const orderTaxRate = Number(order.taxRate || 0);
+      const taxableBase = Math.max(0, subtotal - nextDiscount);
+      const nextTaxAmount = taxableBase * (orderTaxRate / 100);
+
       const updated = await tx.order.update({
         where: { id: order.id },
         data: {
           status: payload.status ? toOrderStatus(payload.status) : undefined,
           tableId,
           driverId: payload.driverId === undefined ? undefined : payload.driverId,
+          discount: payload.discount === undefined ? undefined : nextDiscount,
+          taxAmount: nextTaxAmount,
           notes: payload.notes === undefined ? undefined : payload.notes,
         },
         include: orderInclude,
@@ -225,11 +321,44 @@ export async function PATCH(
         });
       }
 
+      const mapped = mapOrder(updated);
+      const receiptSnapshot = buildReceiptSnapshot({
+        code: mapped.code,
+        createdAt: mapped.createdAt,
+        customerName: mapped.customer,
+        orderType: mapped.type,
+        payment: mapped.payment,
+        brandName: branding.brandName,
+        brandTagline: branding.brandTagline || undefined,
+        logoUrl: branding.logoUrl || null,
+        tableName: mapped.tableName,
+        tableNumber: mapped.tableNumber ?? null,
+        zoneName: mapped.zoneName,
+        items: mapped.items.map((item) => ({
+          name: item.name,
+          qty: item.qty,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+        })),
+        discount: mapped.discount,
+        taxRate: mapped.taxRate,
+        taxAmount: mapped.taxAmount,
+        deliveryFee: mapped.deliveryFee,
+        total: mapped.total,
+        notes: mapped.notes,
+      });
+
+      const withReceipt = await tx.order.update({
+        where: { id: order.id },
+        data: { receiptSnapshot: receiptSnapshot as Prisma.InputJsonValue },
+        include: orderInclude,
+      });
+
       if (nextStatus === OrderStatus.DELIVERED) {
         await upsertApprovedSaleForOrder(tx, order.id, auth.user.id);
       }
 
-      return updated;
+      return withReceipt;
     });
 
     return jsonOk({ order: mapOrder(updatedOrder) });

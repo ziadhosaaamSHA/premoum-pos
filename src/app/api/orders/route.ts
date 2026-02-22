@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { OrderStatus, OrderType, Prisma } from "@prisma/client";
+import { OrderStatus, OrderType, Prisma, SaleStatus } from "@prisma/client";
 import { db } from "@/server/db";
 import { requireAuth } from "@/server/auth/guards";
 import { HttpError, jsonError, jsonOk, readJson } from "@/server/http";
@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
     const payment = toPaymentMethod(payload.payment);
     const discount = Number(payload.discount || 0);
     const taxRate = Math.max(0, Number(payload.taxRate || 0));
+    const appendToOrderId = payload.appendToOrderId || null;
 
     if (orderType === OrderType.DELIVERY && !payload.zoneId) {
       throw new HttpError(400, "zone_required", "Delivery order requires a zone");
@@ -93,6 +94,12 @@ export async function POST(request: NextRequest) {
 
     if (orderType !== OrderType.DINE_IN && payload.tableId) {
       throw new HttpError(400, "invalid_table", "Table can only be used with dine-in orders");
+    }
+    if (appendToOrderId && orderType !== OrderType.DINE_IN) {
+      throw new HttpError(400, "invalid_append_type", "You can only append items to dine-in orders");
+    }
+    if (appendToOrderId && !payload.tableId) {
+      throw new HttpError(400, "table_required", "Table is required when appending to an active order");
     }
 
     const order = await db.$transaction(async (tx) => {
@@ -156,6 +163,107 @@ export async function POST(request: NextRequest) {
         if (result.count === 0) {
           throw new HttpError(400, "insufficient_stock", "Insufficient stock for one or more ingredients");
         }
+      }
+
+      if (appendToOrderId) {
+        const existingOrder = await tx.order.findUnique({
+          where: { id: appendToOrderId },
+          include: orderInclude,
+        });
+        if (!existingOrder) {
+          throw new HttpError(404, "order_not_found", "Order not found");
+        }
+        if (!ACTIVE_ORDER_STATUSES.includes(existingOrder.status)) {
+          throw new HttpError(400, "order_not_active", "Only active orders can receive additional items");
+        }
+        if (existingOrder.type !== OrderType.DINE_IN || !existingOrder.tableId) {
+          throw new HttpError(400, "invalid_order_type", "Only active dine-in table orders can be updated");
+        }
+        if (payload.tableId !== existingOrder.tableId) {
+          throw new HttpError(409, "table_mismatch", "Selected table does not match the active table order");
+        }
+
+        const table = await tx.diningTable.findUnique({
+          where: { id: existingOrder.tableId },
+          include: {
+            orders: {
+              where: { status: { in: ACTIVE_ORDER_STATUSES } },
+              select: { id: true },
+            },
+          },
+        });
+        if (!table) {
+          throw new HttpError(404, "table_not_found", "Table not found");
+        }
+        if (table.orders.some((tableOrder) => tableOrder.id !== existingOrder.id)) {
+          throw new HttpError(400, "table_occupied", "Table has another active order");
+        }
+
+        await tx.orderItem.createMany({
+          data: itemLines.map((item) => ({
+            orderId: existingOrder.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+          })),
+        });
+
+        const totals = await tx.orderItem.aggregate({
+          where: { orderId: existingOrder.id },
+          _sum: { totalPrice: true },
+        });
+        const subtotal = Number(totals._sum.totalPrice || 0);
+        const existingDiscount = Number(existingOrder.discount || 0);
+        const existingTaxRate = Number(existingOrder.taxRate || 0);
+        const taxableBase = Math.max(0, subtotal - existingDiscount);
+        const taxAmount = taxableBase * (existingTaxRate / 100);
+
+        const orderWithTotals = await tx.order.update({
+          where: { id: existingOrder.id },
+          data: {
+            taxAmount,
+          },
+          include: orderInclude,
+        });
+
+        await tx.diningTable.update({
+          where: { id: existingOrder.tableId },
+          data: { isOccupied: true },
+        });
+
+        const mapped = mapOrder(orderWithTotals);
+        const receiptSnapshot = buildReceiptSnapshot({
+          code: mapped.code,
+          createdAt: mapped.createdAt,
+          customerName: mapped.customer,
+          orderType: mapped.type,
+          payment: mapped.payment,
+          brandName: branding.brandName,
+          brandTagline: branding.brandTagline || undefined,
+          logoUrl: branding.logoUrl || null,
+          tableName: mapped.tableName,
+          tableNumber: mapped.tableNumber ?? null,
+          zoneName: mapped.zoneName,
+          items: mapped.items.map((item) => ({
+            name: item.name,
+            qty: item.qty,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+          })),
+          discount: mapped.discount,
+          taxRate: mapped.taxRate,
+          taxAmount: mapped.taxAmount,
+          deliveryFee: mapped.deliveryFee,
+          total: mapped.total,
+          notes: mapped.notes,
+        });
+
+        return tx.order.update({
+          where: { id: existingOrder.id },
+          data: { receiptSnapshot: receiptSnapshot as Prisma.InputJsonValue },
+          include: orderInclude,
+        });
       }
 
       let tableId: string | null = null;
@@ -245,6 +353,7 @@ export async function POST(request: NextRequest) {
         payment: mapped.payment,
         brandName: branding.brandName,
         brandTagline: branding.brandTagline || undefined,
+        logoUrl: branding.logoUrl || null,
         tableName: mapped.tableName,
         tableNumber: mapped.tableNumber ?? null,
         zoneName: mapped.zoneName,
@@ -268,10 +377,51 @@ export async function POST(request: NextRequest) {
         include: orderInclude,
       });
 
+      if (orderType !== OrderType.DINE_IN) {
+        const saleItems = mapped.items.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          quantity: item.qty,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+        }));
+
+        await tx.sale.upsert({
+          where: { orderId: updatedOrder.id },
+          update: {
+            date: new Date(),
+            customerName: mapped.customer,
+            total: mapped.total,
+            status: SaleStatus.PAID,
+            createdById: auth.user.id,
+            items: {
+              deleteMany: {},
+              createMany: {
+                data: saleItems,
+              },
+            },
+          },
+          create: {
+            invoiceNo: generateCode("INV"),
+            orderId: updatedOrder.id,
+            date: new Date(),
+            customerName: mapped.customer,
+            total: mapped.total,
+            status: SaleStatus.PAID,
+            createdById: auth.user.id,
+            items: {
+              createMany: {
+                data: saleItems,
+              },
+            },
+          },
+        });
+      }
+
       return updatedOrder;
     });
 
-    return jsonOk({ order: mapOrder(order) }, { status: 201 });
+    return jsonOk({ order: mapOrder(order) }, { status: appendToOrderId ? 200 : 201 });
   } catch (error) {
     return jsonError(error);
   }

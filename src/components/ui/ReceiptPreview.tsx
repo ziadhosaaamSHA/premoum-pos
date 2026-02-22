@@ -15,7 +15,13 @@ export default function ReceiptPreview({ receipt }: ReceiptPreviewProps) {
     <div className="receipt-preview">
       <div className="receipt-header">
         <div className="receipt-brand">
-          <div className="receipt-logo">PP</div>
+          <div className="receipt-logo">
+            {receipt.logoUrl ? (
+              <img src={receipt.logoUrl} alt={receipt.brandName} className="receipt-logo-image" />
+            ) : (
+              <span>PP</span>
+            )}
+          </div>
           <div className="receipt-brand-text">
             <strong>{receipt.brandName}</strong>
             <span>{receipt.brandTagline}</span>

@@ -30,6 +30,11 @@ function hasPermission(auth: { user: { isOwner: boolean; permissions: string[] }
   return auth.user.isOwner || auth.user.permissions.includes(code);
 }
 
+function isOwnerOrAdmin(auth: { user: { isOwner: boolean; roles: string[] } }) {
+  if (auth.user.isOwner) return true;
+  return auth.user.roles.some((role) => role.trim().toLowerCase() === "admin");
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ saleId: string }> }
@@ -158,7 +163,11 @@ export async function DELETE(
   context: { params: Promise<{ saleId: string }> }
 ) {
   try {
-    await requireAuth(request, { anyPermission: ["sales:manage", "sales:delete"] });
+    const auth = await requireAuth(request);
+    if (!isOwnerOrAdmin(auth)) {
+      throw new HttpError(403, "forbidden", "Only owner/admin can delete invoices");
+    }
+
     const { saleId } = await context.params;
 
     const sale = await db.sale.findUnique({
@@ -166,21 +175,23 @@ export async function DELETE(
       select: {
         id: true,
         status: true,
-        orderId: true,
       },
     });
     if (!sale) {
       throw new HttpError(404, "sale_not_found", "Sale not found");
     }
-    if (sale.status !== SaleStatus.DRAFT) {
-      throw new HttpError(400, "sale_not_draft", "Only draft invoices can be deleted");
-    }
-    if (sale.orderId) {
-      throw new HttpError(400, "linked_sale_protected", "Order-linked invoices cannot be deleted");
+
+    if (sale.status === SaleStatus.VOID) {
+      await db.sale.delete({ where: { id: sale.id } });
+      return jsonOk({ deleted: true, mode: "hard" as const });
     }
 
-    await db.sale.delete({ where: { id: sale.id } });
-    return jsonOk({ deleted: true });
+    await db.sale.update({
+      where: { id: sale.id },
+      data: { status: SaleStatus.VOID },
+    });
+
+    return jsonOk({ deleted: true, mode: "soft" as const });
   } catch (error) {
     return jsonError(error);
   }

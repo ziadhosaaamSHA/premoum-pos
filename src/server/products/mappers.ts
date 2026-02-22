@@ -20,6 +20,7 @@ type ProductRow = {
   categoryId: string;
   price: unknown;
   isActive: boolean;
+  imageUrl: string | null;
   category: { id: string; name: string } | null;
   recipeItems: Array<{
     id: string;
@@ -55,6 +56,7 @@ export function mapProduct(row: ProductRow) {
     categoryName: row.category?.name || "—",
     price,
     isActive: row.isActive,
+    imageUrl: row.imageUrl,
     recipe,
     cost,
     margin,

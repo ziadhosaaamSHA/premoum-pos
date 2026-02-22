@@ -7,7 +7,7 @@ import { assertRateLimit } from "@/server/rate-limit";
 import { trialResetPasswordSchema } from "@/server/validation/schemas";
 
 function isTrialResetEnabled() {
-  return process.env.TRIAL_PASSWORD_RESET_ENABLED === "true";
+  return process.env.TRIAL_PASSWORD_RESET_ENABLED !== "false";
 }
 
 export async function POST(request: NextRequest) {

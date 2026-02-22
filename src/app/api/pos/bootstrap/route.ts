@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
           categoryId: product.categoryId,
           price: Number(product.price),
           isActive: product.isActive,
+          imageUrl: product.imageUrl,
           label: product.name[0] || "P",
           maxQty,
         };

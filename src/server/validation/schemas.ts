@@ -105,6 +105,7 @@ export const orderCreateSchema = z.object({
   zoneId: z.string().min(1).max(64).nullable().optional(),
   driverId: z.string().min(1).max(64).nullable().optional(),
   tableId: z.string().min(1).max(64).nullable().optional(),
+  appendToOrderId: z.string().min(1).max(64).nullable().optional(),
   discount: z.number().min(0).max(1_000_000).default(0),
   taxRate: z.number().min(0).max(100).optional(),
   payment: z.enum(["cash", "card", "wallet", "mixed"]),
@@ -116,6 +117,16 @@ export const orderUpdateSchema = z.object({
   status: z.enum(["preparing", "ready", "out", "delivered", "cancelled"]).optional(),
   tableId: z.string().min(1).max(64).nullable().optional(),
   driverId: z.string().min(1).max(64).nullable().optional(),
+  discount: z.number().min(0).max(1_000_000).optional(),
+  itemDeductions: z
+    .array(
+      z.object({
+        itemId: z.string().min(1).max(64),
+        quantity: z.number().int().min(1).max(999),
+      })
+    )
+    .max(200)
+    .optional(),
   notes: z.string().max(500).nullable().optional(),
 });
 
@@ -235,6 +246,7 @@ export const productCreateSchema = z.object({
   categoryId: z.string().min(1).max(64),
   price: z.number().min(0).max(1_000_000),
   isActive: z.boolean().optional().default(true),
+  imageUrl: z.string().max(2_000_000).nullable().optional(),
   recipe: z.array(recipeLineSchema).optional().default([]),
 });
 
@@ -243,6 +255,7 @@ export const productUpdateSchema = z.object({
   categoryId: z.string().min(1).max(64).optional(),
   price: z.number().min(0).max(1_000_000).optional(),
   isActive: z.boolean().optional(),
+  imageUrl: z.string().max(2_000_000).nullable().optional(),
   recipe: z.array(recipeLineSchema).optional(),
 });
 

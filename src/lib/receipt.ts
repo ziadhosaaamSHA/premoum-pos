@@ -11,6 +11,7 @@ export type ReceiptSnapshot = {
   version: 1;
   brandName: string;
   brandTagline: string;
+  logoUrl: string | null;
   code: string;
   createdAt: string;
   customerName: string;
@@ -53,6 +54,7 @@ export type ReceiptSource = {
   notes?: string | null;
   brandName?: string;
   brandTagline?: string;
+  logoUrl?: string | null;
 };
 
 export function buildReceiptSnapshot(source: ReceiptSource): ReceiptSnapshot {
@@ -77,6 +79,7 @@ export function buildReceiptSnapshot(source: ReceiptSource): ReceiptSnapshot {
     version: 1,
     brandName: source.brandName || RECEIPT_BRAND.name,
     brandTagline: source.brandTagline || RECEIPT_BRAND.tagline,
+    logoUrl: source.logoUrl ?? null,
     code: source.code,
     createdAt,
     customerName: source.customerName,
@@ -114,6 +117,14 @@ export function formatReceiptDate(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+function escapeAttr(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 export function buildReceiptPrintHtml(receipt: ReceiptSnapshot) {
@@ -178,6 +189,10 @@ export function buildReceiptPrintHtml(receipt: ReceiptSnapshot) {
     ? `<div class="notes">ملاحظات: ${receipt.notes}</div>`
     : "";
 
+  const logoHtml = receipt.logoUrl
+    ? `<img class="logo-image" src="${escapeAttr(receipt.logoUrl)}" alt="${escapeAttr(receipt.brandName)}" />`
+    : `<span class="logo-fallback">PP</span>`;
+
   return `
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -221,6 +236,18 @@ export function buildReceiptPrintHtml(receipt: ReceiptSnapshot) {
         align-items: center;
         justify-content: center;
         font-weight: 700;
+        overflow: hidden;
+      }
+      .logo-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .logo-fallback {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
       .brand-text strong {
         display: block;
@@ -303,7 +330,7 @@ export function buildReceiptPrintHtml(receipt: ReceiptSnapshot) {
     <div class="receipt">
       <div class="receipt-header">
         <div class="brand">
-          <div class="logo">PP</div>
+          <div class="logo">${logoHtml}</div>
           <div class="brand-text">
             <strong>${receipt.brandName}</strong>
             <span>${receipt.brandTagline}</span>

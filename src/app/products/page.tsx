@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
 import { ApiError, apiRequest } from "@/lib/api";
 import { money, num2 } from "@/lib/format";
 import InlineModal from "@/components/ui/InlineModal";
 import RowActions from "@/components/ui/RowActions";
 import TableDataActions from "@/components/ui/TableDataActions";
+
+const MAX_PRODUCT_IMAGE_CHARS = 1_400_000;
+const MAX_PRODUCT_IMAGE_DIMENSION = 560;
 
 type CategoryRow = {
   id: string;
@@ -38,6 +41,7 @@ type ProductRow = {
   categoryName: string;
   price: number;
   isActive: boolean;
+  imageUrl: string | null;
   recipe: ProductRecipeLine[];
   cost: number;
   margin: number;
@@ -50,6 +54,73 @@ type RecipeDraftLine = {
   materialId: string;
   quantity: number;
 };
+
+async function loadImage(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("invalid_image"));
+    };
+    img.src = url;
+  });
+}
+
+function drawToCanvas(image: HTMLImageElement, scale: number) {
+  const canvas = document.createElement("canvas");
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.drawImage(image, 0, 0, width, height);
+  }
+  return canvas;
+}
+
+function encodeCanvas(canvas: HTMLCanvasElement, type: string, quality?: number) {
+  try {
+    return canvas.toDataURL(type, quality);
+  } catch {
+    return canvas.toDataURL();
+  }
+}
+
+async function compressImageFile(file: File) {
+  const image = await loadImage(file);
+  let scale = Math.min(1, MAX_PRODUCT_IMAGE_DIMENSION / Math.max(image.width, image.height));
+
+  for (let pass = 0; pass < 4; pass += 1) {
+    const canvas = drawToCanvas(image, scale);
+    const attempts: Array<{ type: string; quality?: number }> = [
+      { type: "image/webp", quality: 0.9 },
+      { type: "image/webp", quality: 0.8 },
+      { type: "image/webp", quality: 0.7 },
+      { type: "image/jpeg", quality: 0.85 },
+      { type: "image/jpeg", quality: 0.75 },
+    ];
+
+    for (const attempt of attempts) {
+      const dataUrl = encodeCanvas(canvas, attempt.type, attempt.quality);
+      if (attempt.type === "image/webp" && !dataUrl.startsWith("data:image/webp")) {
+        continue;
+      }
+      if (dataUrl.length <= MAX_PRODUCT_IMAGE_CHARS) {
+        return dataUrl;
+      }
+    }
+
+    scale *= 0.82;
+  }
+
+  throw new Error("image_too_large");
+}
 
 export default function ProductsPage() {
   const { pushToast } = useToast();
@@ -76,6 +147,7 @@ export default function ProductsPage() {
     categoryId: "",
     price: 0,
     isActive: true,
+    imageUrl: "",
   });
   const [recipeForm, setRecipeForm] = useState<RecipeDraftLine[]>([]);
 
@@ -177,6 +249,7 @@ export default function ProductsPage() {
         categoryId: categories[0]?.id || "",
         price: 0,
         isActive: true,
+        imageUrl: "",
       });
       setRecipeForm(
         materials[0]
@@ -195,6 +268,7 @@ export default function ProductsPage() {
       categoryId: product.categoryId,
       price: product.price,
       isActive: product.isActive,
+      imageUrl: product.imageUrl || "",
     });
     setRecipeForm(
       product.recipe.map((line) => ({ materialId: line.materialId, quantity: line.qty }))
@@ -244,6 +318,20 @@ export default function ProductsPage() {
     }, 0);
   }, [materials, recipeForm]);
 
+  const handleProductImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      const compressed = await compressImageFile(file);
+      setProductForm((prev) => ({ ...prev, imageUrl: compressed }));
+      pushToast("تم رفع صورة المنتج", "success");
+    } catch {
+      pushToast("تعذر رفع الصورة. استخدم صورة أصغر أو جودة أقل.", "error");
+    }
+  };
+
   const submitProduct = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!productModal) return;
@@ -252,6 +340,7 @@ export default function ProductsPage() {
     try {
       const payload = {
         ...productForm,
+        imageUrl: productForm.imageUrl.trim() || null,
         recipe: recipePayload,
       };
 
@@ -599,6 +688,23 @@ export default function ProductsPage() {
       >
         {productModal?.mode === "view" && selectedProduct ? (
           <div className="modal-body">
+            <div className="receipt-brand" style={{ marginBottom: 12 }}>
+              <div className="receipt-logo" style={{ width: 64, height: 64, padding: 0, overflow: "hidden" }}>
+                {selectedProduct.imageUrl ? (
+                  <img
+                    src={selectedProduct.imageUrl}
+                    alt={selectedProduct.name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  <div className="product-thumb-placeholder" style={{ width: "100%", height: "100%" }} />
+                )}
+              </div>
+              <div className="receipt-brand-text">
+                <strong>{selectedProduct.name}</strong>
+                <span>{selectedProduct.categoryName}</span>
+              </div>
+            </div>
             <div className="list">
               <div className="row-line">
                 <span>اسم المنتج</span>
@@ -670,6 +776,46 @@ export default function ProductsPage() {
               onChange={(event) => setProductForm((prev) => ({ ...prev, price: Number(event.target.value || 0) }))}
               required
             />
+
+            <label>صورة المنتج</label>
+            <div className="recipe-editor">
+              <div className="receipt-brand" style={{ alignItems: "center" }}>
+                <div className="receipt-logo" style={{ width: 72, height: 72, padding: 0, overflow: "hidden" }}>
+                  {productForm.imageUrl ? (
+                    <img
+                      src={productForm.imageUrl}
+                      alt="معاينة صورة المنتج"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <div className="product-thumb-placeholder" style={{ width: "100%", height: "100%" }} />
+                  )}
+                </div>
+                <div className="row-actions">
+                  <label className="ghost" style={{ cursor: "pointer" }}>
+                    <i className="bx bx-image-add"></i>
+                    رفع صورة
+                    <input type="file" accept="image/*" hidden onChange={handleProductImageUpload} />
+                  </label>
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => setProductForm((prev) => ({ ...prev, imageUrl: "" }))}
+                    disabled={!productForm.imageUrl}
+                  >
+                    <i className="bx bx-trash"></i>
+                    إزالة
+                  </button>
+                </div>
+              </div>
+              <input
+                type="text"
+                value={productForm.imageUrl}
+                onChange={(event) => setProductForm((prev) => ({ ...prev, imageUrl: event.target.value }))}
+                placeholder="أو ضع رابط الصورة مباشرة"
+              />
+              <p className="hint">إذا لم تُحدد صورة، سيتم عرض مساحة لونية بدون أحرف في الكاشير.</p>
+            </div>
 
             <label className="checkbox">
               <input

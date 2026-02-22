@@ -49,11 +49,17 @@ export function getClientIp(request: NextRequest) {
 }
 
 export function getRequestOrigin(request: NextRequest) {
-  const envUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL;
-  if (envUrl) return envUrl.replace(/\/+$/, "");
-  const proto = request.headers.get("x-forwarded-proto") || request.nextUrl.protocol.replace(":", "");
-  const host =
-    request.headers.get("x-forwarded-host") || request.headers.get("host") || request.nextUrl.host;
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost || request.headers.get("host") || request.nextUrl.host;
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto = forwardedProto || request.nextUrl.protocol.replace(":", "") || "https";
+
   if (host) return `${proto}://${host}`;
+
+  const envUrl =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  if (envUrl) return envUrl.replace(/\/+$/, "");
   return request.nextUrl.origin;
 }

@@ -39,7 +39,7 @@ type SaleRow = {
 
 export default function SalesPage() {
   const { pushToast } = useToast();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [searchSales, setSearchSales] = useState("");
@@ -62,7 +62,11 @@ export default function SalesPage() {
 
   const canCreateSales = hasPermission("sales:manage");
   const canEditSales = hasPermission("sales:manage") || hasPermission("sales:edit");
-  const canDeleteSales = hasPermission("sales:manage") || hasPermission("sales:delete");
+  const isOwnerOrAdmin = Boolean(
+    user &&
+      (user.isOwner || user.roles.some((role) => role.trim().toLowerCase() === "admin"))
+  );
+  const canDeleteSales = isOwnerOrAdmin;
   const canApproveSales = hasPermission("sales:manage") || hasPermission("sales:approve");
 
   const handleError = useCallback(
@@ -96,10 +100,12 @@ export default function SalesPage() {
   }, [fetchSales]);
 
   const totals = useMemo(() => {
-    const totalRevenue = sales.reduce((sum, sale) => sum + sale.total, 0);
-    const draftCount = sales.filter((sale) => sale.status === "draft").length;
-    const paidCount = sales.filter((sale) => sale.status === "paid").length;
-    return { totalRevenue, draftCount, paidCount };
+    const included = sales.filter((sale) => sale.status !== "void");
+    const totalRevenue = included.reduce((sum, sale) => sum + sale.total, 0);
+    const draftCount = included.filter((sale) => sale.status === "draft").length;
+    const paidCount = included.filter((sale) => sale.status === "paid").length;
+    const voidCount = sales.filter((sale) => sale.status === "void").length;
+    return { totalRevenue, draftCount, paidCount, voidCount };
   }, [sales]);
 
   const filteredSales = useMemo(() => {
@@ -121,6 +127,10 @@ export default function SalesPage() {
 
   const receiptSale = receiptSaleId
     ? sales.find((sale) => sale.id === receiptSaleId) || null
+    : null;
+
+  const deleteTargetSale = deleteSaleId
+    ? sales.find((sale) => sale.id === deleteSaleId) || null
     : null;
 
   const startEdit = (saleId: string) => {
@@ -222,12 +232,17 @@ export default function SalesPage() {
     if (!canDeleteSales) return;
     setSubmitting(true);
     try {
-      await apiRequest<{ deleted: boolean }>(`/api/sales/${saleId}`, {
+      const result = await apiRequest<{ deleted: boolean; mode: "soft" | "hard" }>(`/api/sales/${saleId}`, {
         method: "DELETE",
       });
       setDeleteSaleId(null);
       await fetchSales();
-      pushToast("تم حذف الفاتورة", "success");
+      pushToast(
+        result.mode === "soft"
+          ? "تم تعليم الفاتورة كمحذوفة واستبعادها من الحسابات"
+          : "تم حذف الفاتورة نهائياً من النظام",
+        "success"
+      );
     } catch (error) {
       handleError(error, "تعذر حذف الفاتورة");
     } finally {
@@ -253,6 +268,11 @@ export default function SalesPage() {
           <strong>{totals.draftCount}</strong>
           <small>بانتظار الاعتماد</small>
         </div>
+        <div className="kpi">
+          <span>فواتير محذوفة</span>
+          <strong>{totals.voidCount}</strong>
+          <small>مستبعدة من الإجماليات</small>
+        </div>
       </div>
 
       <div className="card wide">
@@ -273,6 +293,7 @@ export default function SalesPage() {
               <option value="">كل الحالات</option>
               <option value="paid">مدفوع</option>
               <option value="draft">مسودة</option>
+              <option value="void">محذوف</option>
             </select>
             {canCreateSales && (
               <button
@@ -294,7 +315,11 @@ export default function SalesPage() {
                 { label: "التاريخ", value: (row) => row.date },
                 { label: "العميل", value: (row) => row.customer },
                 { label: "الإجمالي", value: (row) => row.total },
-                { label: "الحالة", value: (row) => (row.status === "paid" ? "مدفوع" : "مسودة") },
+                {
+                  label: "الحالة",
+                  value: (row) =>
+                    row.status === "paid" ? "مدفوع" : row.status === "void" ? "محذوف" : "مسودة",
+                },
               ]}
               fileName="sales-invoices"
               printTitle="فواتير المبيعات"
@@ -330,8 +355,12 @@ export default function SalesPage() {
                     <td>{sale.customer}</td>
                     <td>{money(sale.total)}</td>
                     <td>
-                      <span className={`badge ${sale.status === "paid" ? "ok" : "warn"}`}>
-                        {sale.status === "paid" ? "مدفوع" : "مسودة"}
+                      <span
+                        className={`badge ${
+                          sale.status === "paid" ? "ok" : sale.status === "void" ? "danger" : "warn"
+                        }`}
+                      >
+                        {sale.status === "paid" ? "مدفوع" : sale.status === "void" ? "محذوف" : "مسودة"}
                       </span>
                     </td>
                     <td>
@@ -353,7 +382,7 @@ export default function SalesPage() {
                           onPrint={sale.orderReceipt ? () => setReceiptSaleId(sale.id) : undefined}
                           printMessage="تم فتح إيصال الطلب"
                           disableEdit={!canEditSales || sale.status !== "draft" || Boolean(sale.orderId)}
-                          disableDelete={!canDeleteSales || sale.status !== "draft" || Boolean(sale.orderId)}
+                          disableDelete={!canDeleteSales}
                           confirmDelete={false}
                         />
                       </div>
@@ -427,7 +456,9 @@ export default function SalesPage() {
               </div>
               <div className="row-line">
                 <span>الحالة</span>
-                <strong>{selectedSale.status === "paid" ? "مدفوع" : "مسودة"}</strong>
+                <strong>
+                  {selectedSale.status === "paid" ? "مدفوع" : selectedSale.status === "void" ? "محذوف" : "مسودة"}
+                </strong>
               </div>
               {selectedSale.orderId ? (
                 <div className="row-line">
@@ -553,7 +584,11 @@ export default function SalesPage() {
         }
       >
         <div className="modal-body">
-          <p>يمكن حذف الفواتير المسودة اليدوية فقط.</p>
+          {deleteTargetSale?.status === "void" ? (
+            <p>سيتم حذف الفاتورة نهائياً من النظام في هذه الخطوة ولا يمكن استعادتها لاحقاً.</p>
+          ) : (
+            <p>سيتم تعليم الفاتورة كمحذوفة واستبعادها من إجماليات النظام. الحذف التالي يحذفها نهائياً.</p>
+          )}
         </div>
       </InlineModal>
 

@@ -104,6 +104,7 @@ export async function PATCH(
           categoryId: payload.categoryId,
           price: payload.price,
           isActive: payload.isActive,
+          imageUrl: payload.imageUrl === undefined ? undefined : payload.imageUrl?.trim() || null,
         },
       });
 

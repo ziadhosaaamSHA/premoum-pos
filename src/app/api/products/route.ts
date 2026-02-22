@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
         categoryId: category.id,
         price: payload.price,
         isActive: payload.isActive,
+        imageUrl: payload.imageUrl?.trim() || null,
         recipeItems: payload.recipe.length
           ? {
               createMany: {

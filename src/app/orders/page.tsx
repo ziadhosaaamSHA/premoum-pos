@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
+import { useBranding } from "@/context/BrandingContext";
 import { ApiError, apiRequest } from "@/lib/api";
 import { money, translateStatus } from "@/lib/format";
 import { buildReceiptSnapshot, ReceiptSnapshot } from "@/lib/receipt";
@@ -92,7 +94,9 @@ function statusBadge(status: OrderStatusUi) {
 }
 
 export default function OrdersPage() {
+  const router = useRouter();
   const { pushToast } = useToast();
+  const { branding } = useBranding();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [tables, setTables] = useState<TableRow[]>([]);
@@ -205,6 +209,9 @@ export default function OrdersPage() {
       customerName: receiptOrder.customer,
       orderType: receiptOrder.type,
       payment: receiptOrder.payment,
+      brandName: branding.brandName,
+      brandTagline: branding.brandTagline || undefined,
+      logoUrl: branding.logoUrl || null,
       tableName: receiptOrder.tableName,
       tableNumber: receiptOrder.tableNumber ?? null,
       zoneName: receiptOrder.zoneName,
@@ -221,7 +228,7 @@ export default function OrdersPage() {
       total: receiptOrder.total,
       notes: receiptOrder.notes,
     });
-  }, [receiptOrder]);
+  }, [branding.brandName, branding.brandTagline, branding.logoUrl, receiptOrder]);
 
   const selectedTable = selectedTableId
     ? tables.find((table) => table.id === selectedTableId) || null
@@ -935,7 +942,19 @@ export default function OrdersPage() {
                   </>
                 )
               ) : (
-                <p className="hint">هذه الطاولة فارغة حالياً.</p>
+                <>
+                  <p className="hint">هذه الطاولة فارغة حالياً.</p>
+                  <button
+                    className="primary"
+                    type="button"
+                    onClick={() => {
+                      router.push(`/pos?tableId=${selectedTable.id}`);
+                      setSelectedTableId(null);
+                    }}
+                  >
+                    طلب جديد على هذه الطاولة
+                  </button>
+                </>
               )}
               <div className="row-actions">
                 <button

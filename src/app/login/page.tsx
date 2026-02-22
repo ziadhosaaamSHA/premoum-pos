@@ -20,7 +20,7 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
-  const trialResetEnabled = process.env.NEXT_PUBLIC_TRIAL_PASSWORD_RESET_ENABLED === "true";
+  const trialResetEnabled = process.env.NEXT_PUBLIC_TRIAL_PASSWORD_RESET_ENABLED !== "false";
   const requestedNext = searchParams.get("next");
   const nextPath =
     requestedNext && requestedNext.startsWith("/") && !requestedNext.startsWith("//")
