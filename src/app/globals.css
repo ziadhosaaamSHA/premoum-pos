@@ -850,16 +850,62 @@
   }
 
   .quick-action {
-    @apply border border-border bg-card px-3 py-3 inline-flex items-center justify-center gap-2 font-semibold transition;
+    --quick-accent: #4f6df0;
+    @apply border px-3 py-3 inline-flex items-center justify-center gap-2 font-semibold transition;
+    flex-direction: column;
+    min-height: 86px;
+    color: var(--color-ink);
+    background: linear-gradient(
+      165deg,
+      color-mix(in oklab, var(--quick-accent) 14%, var(--color-card) 86%),
+      var(--color-card)
+    );
+    border-color: color-mix(in oklab, var(--quick-accent) 24%, var(--color-border) 76%);
     border-radius: var(--radius-control);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
   }
 
-  .quick-action i {
+  .quick-action-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--quick-accent);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 18px color-mix(in oklab, var(--quick-accent) 36%, transparent);
+  }
+
+  .quick-action-icon i {
     @apply text-base;
   }
 
+  .quick-action-label {
+    @apply text-sm font-semibold;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .quick-action.qa-busy {
+    --quick-accent: #4f6df0;
+  }
+
+  .quick-action.qa-new {
+    --quick-accent: #1bb67b;
+  }
+
+  .quick-action.qa-undo {
+    --quick-accent: #ec4f7a;
+  }
+
+  .quick-action.qa-expense {
+    --quick-accent: #f4a62a;
+  }
+
   .quick-action:hover {
-    @apply border-accent text-accent;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px color-mix(in oklab, var(--quick-accent) 26%, transparent);
   }
 
   .busy-tables-drawer {

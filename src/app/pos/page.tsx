@@ -828,23 +828,31 @@ export default function PosPage() {
             <div className="quick-actions-grid">
               <button
                 type="button"
-                className="quick-action"
+                className="quick-action qa-busy"
                 onClick={() => setBusyDrawerOpen((prev) => !prev)}
               >
-                <i className="bx bx-table"></i>
-                الطاولات المشغولة
+                <span className="quick-action-icon">
+                  <i className="bx bx-table"></i>
+                </span>
+                <span className="quick-action-label">الطاولات المشغولة</span>
               </button>
-              <button type="button" className="quick-action" onClick={startNewOrder}>
-                <i className="bx bx-plus-circle"></i>
-                طلب جديد
+              <button type="button" className="quick-action qa-new" onClick={startNewOrder}>
+                <span className="quick-action-icon">
+                  <i className="bx bx-plus-circle"></i>
+                </span>
+                <span className="quick-action-label">طلب جديد</span>
               </button>
-              <button type="button" className="quick-action" onClick={undoLastItem}>
-                <i className="bx bx-undo"></i>
-                تراجع
+              <button type="button" className="quick-action qa-undo" onClick={undoLastItem}>
+                <span className="quick-action-icon">
+                  <i className="bx bx-undo"></i>
+                </span>
+                <span className="quick-action-label">تراجع</span>
               </button>
-              <button type="button" className="quick-action" onClick={() => router.push("/finance")}> 
-                <i className="bx bx-money-withdraw"></i>
-                إضافة مصروف
+              <button type="button" className="quick-action qa-expense" onClick={() => router.push("/finance")}>
+                <span className="quick-action-icon">
+                  <i className="bx bx-money-withdraw"></i>
+                </span>
+                <span className="quick-action-label">إضافة مصروف</span>
               </button>
             </div>
           </div>
