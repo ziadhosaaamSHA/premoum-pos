@@ -851,6 +851,7 @@
 
   .quick-action {
     --quick-accent: #4f6df0;
+    --quick-accent-dark: #158e60;
     @apply border px-3 py-3 inline-flex items-center justify-center gap-2 font-semibold transition;
     flex-direction: column;
     min-height: 86px;
@@ -1531,9 +1532,18 @@
     border-radius: var(--radius-control);
     box-shadow: var(--shadow-soft);
   }
+  .primary-green {
+    @apply inline-flex max-w-max items-center gap-2 px-4 py-2 text-white font-semibold transition;
+    background-color: var(--quick-accent);
+    border-radius: var(--radius-control);
+    box-shadow: var(--shadow-soft);
+  }
 
   .primary:hover {
     @apply bg-accent-dark;
+  }
+  .primary-green:hover {
+    background-color: var(--quick-accent-dark);
   }
 
   .danger-btn {
