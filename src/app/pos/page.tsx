@@ -1284,7 +1284,7 @@ export default function PosPage() {
                 </button>
 
                 <button
-                  className="ghost"
+                  className="primary-green"
                   type="button"
                   onClick={openFinishOrderModal}
                   disabled={finishSubmitting || activeOrderLoading}
