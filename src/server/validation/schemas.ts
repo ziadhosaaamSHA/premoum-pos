@@ -95,8 +95,22 @@ export const revokeInviteSchema = z.object({
 });
 
 export const posOrderItemSchema = z.object({
-  productId: z.string().min(1).max(64),
+  productId: z.string().min(1).max(64).optional(),
+  name: z.string().min(1).max(140).optional(),
+  unitPrice: z.number().min(0).max(1_000_000).optional(),
   quantity: z.number().int().min(1).max(999),
+  recipeProductId: z.string().min(1).max(64).nullable().optional(),
+  materials: z
+    .array(
+      z.object({
+        materialId: z.string().min(1).max(64),
+        quantity: z.number().min(0.001).max(1_000_000),
+      })
+    )
+    .max(50)
+    .optional(),
+}).refine((item) => Boolean(item.productId) || Boolean(item.name), {
+  message: "Order item requires a product or custom name",
 });
 
 export const orderCreateSchema = z.object({

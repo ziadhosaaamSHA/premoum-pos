@@ -1,5 +1,6 @@
 import { ZodSchema } from "zod";
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 
 export class HttpError extends Error {
   status: number;
@@ -22,6 +23,21 @@ export function jsonError(error: unknown) {
       { ok: false, error: { code: error.code, message: error.message } },
       { status: error.status }
     );
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2022" || error.code === "P2021") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "database_schema_out_of_sync",
+            message: "Database schema is out of sync. Run migrations and restart the app.",
+          },
+        },
+        { status: 409 }
+      );
+    }
   }
 
   console.error(error);

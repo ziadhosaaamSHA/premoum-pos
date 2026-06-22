@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth(request, { anyPermission: ["pos:use", "orders:view", "orders:manage"] });
 
-    const [categories, products, zones, tables, taxes] = await Promise.all([
+    const [categories, products, materials, zones, tables, taxes] = await Promise.all([
       db.category.findMany({
         orderBy: { name: "asc" },
         select: {
@@ -32,6 +32,15 @@ export async function GET(request: NextRequest) {
               },
             },
           },
+        },
+      }),
+      db.material.findMany({
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          unit: true,
+          stock: true,
         },
       }),
       db.zone.findMany({
@@ -110,6 +119,12 @@ export async function GET(request: NextRequest) {
           maxQty,
         };
       }),
+      materials: materials.map((material) => ({
+        id: material.id,
+        name: material.name,
+        unit: material.unit,
+        stock: Number(material.stock),
+      })),
       zones: zones.map((zone) => ({
         id: zone.id,
         name: zone.name,

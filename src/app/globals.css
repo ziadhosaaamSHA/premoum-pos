@@ -109,6 +109,10 @@
   td {
     @apply px-4 py-3 border-b border-border;
   }
+
+  tr[data-selected="true"] td {
+    background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  }
 }
 
 @layer components {
@@ -788,6 +792,16 @@
     @apply flex flex-wrap items-center gap-4 mb-4;
   }
 
+  .pos-custom-order-btn {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-ink text-card font-semibold transition;
+    border-radius: var(--radius-control);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .pos-custom-order-btn:hover {
+    transform: translateY(-1px);
+  }
+
   .order-types {
     @apply flex items-center gap-2;
   }
@@ -1067,6 +1081,36 @@
     @apply text-xs text-muted;
   }
 
+  .custom-order-modal {
+    max-width: 640px;
+  }
+
+  .custom-order-recipe-note {
+    @apply rounded-lg border border-info-border bg-info-bg px-3 py-2 text-xs text-info-ink;
+  }
+
+  .custom-order-materials {
+    @apply flex flex-col gap-3 rounded-lg border border-border bg-bg/60 p-3;
+  }
+
+  .custom-material-list {
+    @apply flex flex-col gap-2;
+  }
+
+  .custom-material-row {
+    @apply grid items-center gap-2;
+    grid-template-columns: minmax(0, 1fr) 110px 36px minmax(80px, auto);
+  }
+
+  .custom-material-row input,
+  .custom-material-row select {
+    min-width: 0;
+  }
+
+  .custom-order-total {
+    @apply flex items-center justify-between rounded-lg border border-border bg-card px-3 py-3 text-sm;
+  }
+
   .qty-control {
     @apply flex items-center gap-2;
   }
@@ -1142,6 +1186,34 @@
   }
 
   .table-actions-export .ghost {
+    @apply px-3 py-2 text-sm;
+  }
+
+  .table-select-cell {
+    @apply w-10 px-3 text-center;
+  }
+
+  .table-select-cell input {
+    @apply h-4 w-4 cursor-pointer accent-[var(--color-accent)];
+  }
+
+  .table-batch-toolbar {
+    @apply mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-4 py-3 text-sm;
+    background: color-mix(in srgb, var(--color-accent) 8%, var(--color-card));
+  }
+
+  .table-batch-toolbar>span {
+    @apply font-semibold text-ink;
+  }
+
+  .table-batch-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .table-batch-actions .ghost,
+  .table-batch-actions .primary,
+  .table-batch-actions .primary-green,
+  .table-batch-actions .danger-btn {
     @apply px-3 py-2 text-sm;
   }
 
@@ -1996,6 +2068,14 @@
 
   .busy-tables-drawer {
     height: 86%;
+  }
+
+  .custom-material-row {
+    grid-template-columns: 1fr 96px 36px;
+  }
+
+  .custom-material-row .hint {
+    grid-column: 1 / -1;
   }
 
   .profile-layout {

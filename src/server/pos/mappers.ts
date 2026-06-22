@@ -93,6 +93,7 @@ export function generateCode(prefix: string) {
 type OrderItemRow = {
   id: string;
   productId: string | null;
+  name: string | null;
   quantity: number;
   unitPrice: unknown;
   totalPrice: unknown;
@@ -125,7 +126,7 @@ export function mapOrder(row: OrderRow) {
   const items = row.items.map((item) => ({
     id: item.id,
     productId: item.productId,
-    name: item.product?.name || "منتج",
+    name: item.name || item.product?.name || "منتج",
     qty: item.quantity,
     unitPrice: Number(item.unitPrice),
     totalPrice: Number(item.totalPrice),

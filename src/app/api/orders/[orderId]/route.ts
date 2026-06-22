@@ -66,7 +66,7 @@ async function upsertApprovedSaleForOrder(
 
   const saleItemsPayload = order.items.map((item) => ({
     productId: item.productId,
-    name: item.product?.name || "منتج",
+    name: item.name || item.product?.name || "منتج",
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     totalPrice: item.totalPrice,

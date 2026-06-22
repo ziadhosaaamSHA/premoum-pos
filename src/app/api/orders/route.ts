@@ -105,9 +105,15 @@ export async function POST(request: NextRequest) {
     }
 
     const order = await db.$transaction(async (tx) => {
-      const productIds = Array.from(new Set(payload.items.map((item) => item.productId)));
+      const referencedProductIds = Array.from(
+        new Set(
+          payload.items
+            .flatMap((item) => [item.productId, item.recipeProductId || undefined])
+            .filter((id): id is string => Boolean(id))
+        )
+      );
       const products = await tx.product.findMany({
-        where: { id: { in: productIds }, isActive: true },
+        where: { id: { in: referencedProductIds }, isActive: true },
         include: {
           recipeItems: {
             select: {
@@ -118,24 +124,39 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      if (products.length !== productIds.length) {
+      if (products.length !== referencedProductIds.length) {
         throw new HttpError(400, "invalid_products", "One or more products are invalid or inactive");
       }
 
       const productMap = new Map(products.map((product) => [product.id, product]));
       const itemLines = payload.items.map((item) => {
-        const product = productMap.get(item.productId);
-        if (!product) {
-          throw new HttpError(400, "invalid_product", "Invalid product in cart items");
+        if (item.productId) {
+          const product = productMap.get(item.productId);
+          if (!product) {
+            throw new HttpError(400, "invalid_product", "Invalid product in cart items");
+          }
+          const unitPrice = Number(product.price);
+          return {
+            productId: product.id,
+            quantity: item.quantity,
+            unitPrice,
+            totalPrice: unitPrice * item.quantity,
+            recipeItems: product.recipeItems,
+            explicitMaterials: [] as Array<{ materialId: string; quantity: number }>,
+            name: product.name,
+          };
         }
-        const unitPrice = Number(product.price);
+
+        const recipeProduct = item.recipeProductId ? productMap.get(item.recipeProductId) : null;
+        const unitPrice = Number(item.unitPrice || 0);
         return {
-          productId: product.id,
+          productId: null,
           quantity: item.quantity,
           unitPrice,
           totalPrice: unitPrice * item.quantity,
-          recipeItems: product.recipeItems,
-          name: product.name,
+          recipeItems: recipeProduct?.recipeItems || [],
+          explicitMaterials: item.materials || [],
+          name: item.name?.trim() || "طلب خاص",
         };
       });
 
@@ -148,6 +169,10 @@ export async function POST(request: NextRequest) {
         item.recipeItems.forEach((recipe) => {
           const needed = Number(recipe.quantity) * item.quantity;
           materialUsage.set(recipe.materialId, (materialUsage.get(recipe.materialId) || 0) + needed);
+        });
+        item.explicitMaterials.forEach((material) => {
+          const needed = Number(material.quantity) * item.quantity;
+          materialUsage.set(material.materialId, (materialUsage.get(material.materialId) || 0) + needed);
         });
       });
 
@@ -205,6 +230,7 @@ export async function POST(request: NextRequest) {
           data: itemLines.map((item) => ({
             orderId: existingOrder.id,
             productId: item.productId,
+            name: item.productId ? null : item.name,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             totalPrice: item.totalPrice,
@@ -336,6 +362,7 @@ export async function POST(request: NextRequest) {
             createMany: {
               data: itemLines.map((item) => ({
                 productId: item.productId,
+                name: item.productId ? null : item.name,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
                 totalPrice: item.totalPrice,

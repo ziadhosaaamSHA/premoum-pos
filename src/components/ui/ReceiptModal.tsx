@@ -1,17 +1,22 @@
 "use client";
 
+import { useCallback, useEffect, useRef } from "react";
 import InlineModal from "@/components/ui/InlineModal";
 import { buildReceiptPrintHtml, ReceiptSnapshot } from "@/lib/receipt";
+import Button from "./Button";
 import ReceiptPreview from "@/components/ui/ReceiptPreview";
 
 type ReceiptModalProps = {
   open: boolean;
   receipt: ReceiptSnapshot | null;
   onClose: () => void;
+  autoPrint?: boolean;
 };
 
-export default function ReceiptModal({ open, receipt, onClose }: ReceiptModalProps) {
-  const handlePrint = () => {
+export default function ReceiptModal({ open, receipt, onClose, autoPrint = false }: ReceiptModalProps) {
+  const autoPrintedReceiptRef = useRef<string | null>(null);
+
+  const handlePrint = useCallback(() => {
     if (!receipt) return;
     const html = buildReceiptPrintHtml(receipt);
     const printWindow = window.open("", "_blank", "width=420,height=720");
@@ -19,8 +24,17 @@ export default function ReceiptModal({ open, receipt, onClose }: ReceiptModalPro
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
-  };
+    window.setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  }, [receipt]);
+
+  useEffect(() => {
+    if (!autoPrint || !open || !receipt) return;
+    if (autoPrintedReceiptRef.current === receipt.code) return;
+    autoPrintedReceiptRef.current = receipt.code;
+    handlePrint();
+  }, [autoPrint, handlePrint, open, receipt]);
 
   return (
     <InlineModal
@@ -30,12 +44,12 @@ export default function ReceiptModal({ open, receipt, onClose }: ReceiptModalPro
       tip="معلومة: يمكنك طباعة الإيصال أو مشاركته مع العميل."
       footer={
         <>
-          <button className="ghost" type="button" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             إغلاق
-          </button>
-          <button className="primary" type="button" onClick={handlePrint} disabled={!receipt}>
+          </Button>
+          <Button onClick={handlePrint} disabled={!receipt}>
             طباعة
-          </button>
+          </Button>
         </>
       }
     >
