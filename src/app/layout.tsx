@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Cairo, Readex_Pro } from "next/font/google";
 import Providers from "@/app/providers";
-import AppShell from "@/components/layout/AppShell";
 import "./globals.css";
 
 const cairo = Cairo({
@@ -36,7 +35,7 @@ export default function RootLayout({
       </head>
       <body className={`${cairo.variable} ${readex.variable} antialiased`}>
         <Providers>
-          <AppShell>{children}</AppShell>
+          {children}
         </Providers>
       </body>
     </html>

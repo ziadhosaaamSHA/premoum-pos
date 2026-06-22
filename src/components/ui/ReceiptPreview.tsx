@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { money, translateStatus } from "@/lib/format";
 import { paymentLabel, ReceiptSnapshot, RECEIPT_BRAND, formatReceiptDate } from "@/lib/receipt";
 
@@ -17,7 +18,13 @@ export default function ReceiptPreview({ receipt }: ReceiptPreviewProps) {
         <div className="receipt-brand">
           <div className="receipt-logo">
             {receipt.logoUrl ? (
-              <img src={receipt.logoUrl} alt={receipt.brandName} className="receipt-logo-image" />
+              <Image
+                src={receipt.logoUrl}
+                alt={receipt.brandName}
+                className="receipt-logo-image"
+                width={48}
+                height={48}
+              />
             ) : (
               <span>PP</span>
             )}

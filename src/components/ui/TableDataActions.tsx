@@ -1,11 +1,13 @@
 "use client";
 
-type TableDataColumn<T> = {
+import Button from "./Button";
+
+export type TableDataColumn<T> = {
   label: string;
   value: (row: T) => string | number | null | undefined;
 };
 
-type TableDataActionsProps<T> = {
+export type TableDataActionsProps<T> = {
   rows: T[];
   columns: TableDataColumn<T>[];
   fileName: string;
@@ -59,6 +61,7 @@ export default function TableDataActions<T>({
       const table = document.getElementById(tableId);
       if (table) {
         const cloned = table.cloneNode(true) as HTMLElement;
+        cloned.querySelectorAll(".table-select-cell").forEach((cell) => cell.remove());
         const headerRow = cloned.querySelector("thead tr");
         const headerCells = headerRow ? Array.from(headerRow.children) : [];
         const actionIndex = headerCells.findIndex((cell) =>
@@ -118,14 +121,12 @@ export default function TableDataActions<T>({
 
   return (
     <div className="table-actions-export">
-      <button className="ghost" type="button" onClick={handleExportCsv} title="تصدير CSV">
-        <i className="bx bx-export"></i>
+      <Button variant="ghost" icon="bx bx-export" onClick={handleExportCsv} title="تصدير CSV">
         تصدير CSV
-      </button>
-      <button className="ghost" type="button" onClick={handlePrint} title="طباعة">
-        <i className="bx bx-printer"></i>
+      </Button>
+      <Button variant="ghost" icon="bx bx-printer" onClick={handlePrint} title="طباعة">
         طباعة
-      </button>
+      </Button>
     </div>
   );
 }

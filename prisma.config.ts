@@ -3,6 +3,17 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+const datasourceUrl = process.env["DIRECT_URL"] || process.env["DATABASE_URL"];
+const prismaCommand = process.argv.slice(2).join(" ");
+const needsDatasourceUrl =
+  prismaCommand.includes("migrate") || prismaCommand.includes("db push");
+
+if (!datasourceUrl && needsDatasourceUrl) {
+  throw new Error(
+    "Prisma migrations require DIRECT_URL or DATABASE_URL. Create .env from .env.example and set a PostgreSQL connection string.",
+  );
+}
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -12,6 +23,6 @@ export default defineConfig({
   datasource: {
     // Prisma CLI (migrate/deploy) should prefer direct DB connection when available.
     // Runtime app DB still uses DATABASE_URL in src/server/db.ts.
-    url: process.env["DIRECT_URL"] || process.env["DATABASE_URL"],
+    url: datasourceUrl,
   },
 });

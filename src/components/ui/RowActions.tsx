@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useToast } from "@/context/ToastContext";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import IconButton from "./IconButton";
 
-type RowActionsProps = {
+export type RowActionsProps = {
   onView?: () => void | Promise<void>;
   onEdit?: () => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
@@ -36,18 +37,21 @@ export default function RowActions({
   const { pushToast } = useToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  const errorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error && error.message ? error.message : fallback;
+
   const handleView = () => {
     if (!onView) return;
     void Promise.resolve(onView())
       .then(() => pushToast(viewMessage, "info"))
-      .catch(() => pushToast("تعذر فتح التفاصيل", "error"));
+      .catch((error) => pushToast(errorMessage(error, "تعذر فتح التفاصيل"), "error"));
   };
 
   const handleEdit = () => {
     if (!onEdit) return;
     void Promise.resolve(onEdit())
       .then(() => pushToast(editMessage, "info"))
-      .catch(() => pushToast("تعذر فتح وضع التعديل", "error"));
+      .catch((error) => pushToast(errorMessage(error, "تعذر فتح وضع التعديل"), "error"));
   };
 
   const handleDelete = () => {
@@ -58,44 +62,36 @@ export default function RowActions({
     }
     void Promise.resolve(onDelete())
       .then(() => pushToast(deleteMessage || "تم تنفيذ الإجراء بنجاح", "success"))
-      .catch(() => pushToast("تعذر تنفيذ الإجراء", "error"));
+      .catch((error) => pushToast(errorMessage(error, "تعذر تنفيذ الإجراء"), "error"));
   };
 
   const handlePrint = () => {
     if (!onPrint) return;
     void Promise.resolve(onPrint())
       .then(() => pushToast(printMessage, "info"))
-      .catch(() => pushToast("تعذر فتح الطباعة", "error"));
+      .catch((error) => pushToast(errorMessage(error, "تعذر فتح الطباعة"), "error"));
   };
 
   return (
     <>
       <div className="table-actions">
         {onView && (
-          <button className="action-btn view" type="button" onClick={handleView} title="عرض">
-            <i className="bx bx-show"></i>
-          </button>
+          <IconButton icon="bx bx-show" variant="view" onClick={handleView} title="عرض" />
         )}
         {onEdit && (
-          <button className="action-btn edit" type="button" onClick={handleEdit} disabled={disableEdit} title="تعديل">
-            <i className="bx bx-edit"></i>
-          </button>
+          <IconButton icon="bx bx-edit" variant="edit" onClick={handleEdit} disabled={disableEdit} title="تعديل" />
         )}
         {onPrint && (
-          <button className="action-btn print" type="button" onClick={handlePrint} title="طباعة">
-            <i className="bx bx-printer"></i>
-          </button>
+          <IconButton icon="bx bx-printer" variant="print" onClick={handlePrint} title="طباعة" />
         )}
         {onDelete && (
-          <button
-            className="action-btn delete"
-            type="button"
+          <IconButton
+            icon="bx bx-trash"
+            variant="delete"
             onClick={handleDelete}
             disabled={disableDelete}
             title="حذف"
-          >
-            <i className="bx bx-trash"></i>
-          </button>
+          />
         )}
       </div>
 
@@ -116,9 +112,9 @@ export default function RowActions({
                 setConfirmOpen(false);
                 pushToast(deleteMessage || "تم تنفيذ الإجراء بنجاح", "success");
               })
-              .catch(() => {
+              .catch((error) => {
                 setConfirmOpen(false);
-                pushToast("تعذر تنفيذ الإجراء", "error");
+                pushToast(errorMessage(error, "تعذر تنفيذ الإجراء"), "error");
               });
           }}
         />

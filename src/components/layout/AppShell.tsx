@@ -24,8 +24,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [storedCollapsed, setStoredCollapsed] = useLocalStorageBoolean("sidebarCollapsed", false);
 
-  const isAuthRoute = pathname === "/login" || pathname === "/accept-invite";
-  const isSetupRoute = pathname === "/setup";
   const canManageSettings = hasPermission("settings:manage");
   const requiredPermission = getRequiredPermission(pathname);
   const hasRoutePermission = !requiredPermission || hasPermission(requiredPermission);
@@ -44,7 +42,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     let active = true;
-    setSetupStatus("loading");
 
     void (async () => {
       try {
@@ -65,27 +62,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
     };
-  }, [loading, authenticated, isSetupRoute]);
+  }, [loading, authenticated]);
 
   useEffect(() => {
     if (loading || setupStatus === "loading") return;
 
-    if (isAuthRoute) {
-      if (setupStatus === "first-launch") {
-        router.replace("/setup");
-        return;
-      }
-      if (authenticated) {
-        router.replace(fallbackRoute);
-      }
-      return;
-    }
-
     if (!authenticated) {
       if (setupStatus === "first-launch") {
-        if (!isSetupRoute) {
-          router.replace("/setup");
-        }
+        router.replace("/setup");
         return;
       }
       const next = encodeURIComponent(pathname);
@@ -98,21 +82,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (setupStatus === "incomplete" && canManageSettings && !isSetupRoute) {
+    if (setupStatus === "incomplete" && canManageSettings) {
       router.replace("/setup");
       return;
-    }
-
-    if (setupStatus === "complete" && isSetupRoute) {
-      router.replace(fallbackRoute);
     }
   }, [
     authenticated,
     canManageSettings,
     fallbackRoute,
     hasRoutePermission,
-    isAuthRoute,
-    isSetupRoute,
     loading,
     pathname,
     router,
@@ -138,63 +116,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const next = !storedCollapsed;
     setStoredCollapsed(next);
   };
-
-  if (isAuthRoute) {
-    if (loading) {
-      return (
-        <div className="auth-shell">
-          <section className="auth-card">
-            <div className="auth-brand">
-              <h1>{branding.brandName}</h1>
-              <p>{branding.brandTagline || "جارٍ التحقق من الجلسة..."}</p>
-            </div>
-          </section>
-          <ToastHost />
-        </div>
-      );
-    }
-
-    if (authenticated) {
-      return (
-        <div className="auth-shell">
-          <ToastHost />
-        </div>
-      );
-    }
-
-    return (
-      <div className="auth-shell">
-        {children}
-        <ToastHost />
-      </div>
-    );
-  }
-
-  const allowSetupWithoutAuth = setupStatus === "first-launch";
-  const showSetupShell = isSetupRoute && (allowSetupWithoutAuth || (authenticated && hasRoutePermission));
-
-  if (showSetupShell) {
-    if (loading || setupStatus === "loading") {
-      return (
-        <div className="auth-shell">
-          <section className="auth-card">
-            <div className="auth-brand">
-              <h1>{branding.brandName}</h1>
-              <p>جارٍ تجهيز إعدادات النظام...</p>
-            </div>
-          </section>
-          <ToastHost />
-        </div>
-      );
-    }
-
-    return (
-      <div className="setup-shell">
-        {children}
-        <ToastHost />
-      </div>
-    );
-  }
 
   if (loading || setupStatus === "loading" || !authenticated || !hasRoutePermission) {
     return (

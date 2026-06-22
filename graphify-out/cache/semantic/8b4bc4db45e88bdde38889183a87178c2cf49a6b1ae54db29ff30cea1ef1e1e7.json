@@ -1,0 +1,1 @@
+{"nodes": [{"id": "permissions_route", "label": "Admin Permissions Route", "file_type": "code", "source_file": "src/app/api/admin/permissions/route.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

@@ -1,0 +1,1 @@
+{"nodes": [{"id": "migration_productimageurl", "label": "Product Image URL Migration", "file_type": "code", "source_file": "prisma/migrations/20260222143000_add_product_image_url/migration.sql", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

@@ -1,0 +1,1 @@
+{"nodes": [{"id": "migration_orderreceiptsnapshot", "label": "Order Receipt Snapshot Migration", "file_type": "code", "source_file": "prisma/migrations/20260213234839_add_order_receipt_snapshot/migration.sql", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

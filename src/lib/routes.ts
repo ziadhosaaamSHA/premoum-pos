@@ -42,9 +42,6 @@ export function getPageMeta(pathname: string) {
 }
 
 export function getRequiredPermission(pathname: string) {
-  if (pathname === "/setup" || pathname.startsWith("/setup/")) {
-    return "settings:manage";
-  }
   if (pathname === "/notifications" || pathname.startsWith("/notifications/")) {
     return "dashboard:view";
   }

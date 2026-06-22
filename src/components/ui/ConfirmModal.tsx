@@ -1,6 +1,7 @@
 "use client";
 
 import InlineModal from "@/components/ui/InlineModal";
+import Button from "./Button";
 
 type ConfirmModalProps = {
   open: boolean;
@@ -31,12 +32,12 @@ export default function ConfirmModal({
       tip="معلومة: تأكد من هذا الإجراء لأنه قد يؤثر على البيانات."
       footer={
         <>
-          <button className="ghost" type="button" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             {cancelLabel}
-          </button>
-          <button className={destructive ? "danger-btn" : "primary"} type="button" onClick={onConfirm}>
+          </Button>
+          <Button variant={destructive ? "danger" : "primary"} onClick={onConfirm}>
             {confirmLabel}
-          </button>
+          </Button>
         </>
       }
     >

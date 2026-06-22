@@ -1,0 +1,1 @@
+{"nodes": [{"id": "productid_route", "label": "Product By ID Route", "file_type": "code", "source_file": "src/app/api/products/[productId]/route.ts", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

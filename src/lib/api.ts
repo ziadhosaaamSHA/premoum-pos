@@ -24,6 +24,8 @@ type CacheEntry = { ts: number; data: unknown };
 const DEFAULT_CACHE_TTL = 30_000;
 const memoryCache = new Map<string, CacheEntry>();
 const inflightCache = new Map<string, Promise<unknown>>();
+const publicPaths = ["/login", "/setup", "/accept-invite"];
+let authRedirecting = false;
 
 function resolveMethod(input: RequestInfo | URL, init?: RequestInit) {
   if (init?.method) return init.method;
@@ -36,6 +38,24 @@ function resolveUrl(input: RequestInfo | URL) {
   if (input instanceof URL) return input.toString();
   if (input instanceof Request) return input.url;
   return String(input);
+}
+
+function isPublicPath(pathname: string) {
+  return publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
+function handleUnauthorizedResponse() {
+  if (typeof window === "undefined" || authRedirecting || isPublicPath(window.location.pathname)) {
+    return;
+  }
+
+  authRedirecting = true;
+  memoryCache.clear();
+  inflightCache.clear();
+  window.dispatchEvent(new Event("auth:expired"));
+
+  const next = `${window.location.pathname}${window.location.search}`;
+  window.location.assign(`/login?next=${encodeURIComponent(next)}`);
 }
 
 export async function apiRequest<T>(input: RequestInfo | URL, init?: ApiRequestInit): Promise<T> {
@@ -71,6 +91,9 @@ export async function apiRequest<T>(input: RequestInfo | URL, init?: ApiRequestI
     if (!response.ok || !payload?.ok) {
       const message = payload && "error" in payload ? payload.error?.message : undefined;
       const code = payload && "error" in payload ? payload.error?.code : undefined;
+      if (response.status === 401) {
+        handleUnauthorizedResponse();
+      }
       throw new ApiError(response.status, code || "request_failed", message || "Request failed");
     }
 

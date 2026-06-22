@@ -1,0 +1,1 @@
+{"nodes": [{"id": "migration_roleisactive", "label": "Role Is Active Migration", "file_type": "code", "source_file": "prisma/migrations/20260211153000_role_is_active/migration.sql", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

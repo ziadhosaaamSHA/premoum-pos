@@ -5,15 +5,6 @@ import { HttpError, jsonError, jsonOk, readJson } from "@/server/http";
 import { mapMaterial } from "@/server/inventory/mappers";
 import { materialUpdateSchema } from "@/server/validation/schemas";
 
-function isPrismaConstraintError(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: string }).code === "P2003"
-  );
-}
-
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ materialId: string }> }
@@ -92,21 +83,26 @@ export async function DELETE(
       throw new HttpError(404, "material_not_found", "Material not found");
     }
 
+    const [recipeCount, purchaseCount, wasteCount] = await Promise.all([
+      db.recipeItem.count({ where: { materialId: material.id } }),
+      db.purchaseItem.count({ where: { materialId: material.id } }),
+      db.waste.count({ where: { materialId: material.id } }),
+    ]);
+
+    if (recipeCount > 0 || purchaseCount > 0 || wasteCount > 0) {
+      throw new HttpError(
+        400,
+        "material_in_use",
+        "لا يمكن حذف المادة لأنها مستخدمة في وصفات أو معاملات"
+      );
+    }
+
     await db.material.delete({
       where: { id: material.id },
     });
 
     return jsonOk({ deleted: true });
   } catch (error) {
-    if (isPrismaConstraintError(error)) {
-      return jsonError(
-        new HttpError(
-          400,
-          "material_in_use",
-          "Material is used in recipes or transactions and cannot be deleted"
-        )
-      );
-    }
     return jsonError(error);
   }
 }
