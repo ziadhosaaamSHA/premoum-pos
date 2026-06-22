@@ -3,7 +3,33 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
-const datasourceUrl = process.env["DIRECT_URL"] || process.env["DATABASE_URL"];
+function cleanEnvUrl(value: string | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+
+  const quoted =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"));
+
+  return quoted ? trimmed.slice(1, -1).trim() : trimmed;
+}
+
+function isPostgresUrl(value: string | undefined) {
+  if (!value) return false;
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "postgresql:" || parsed.protocol === "postgres:";
+  } catch {
+    return false;
+  }
+}
+
+const directUrl = cleanEnvUrl(process.env["DIRECT_URL"]);
+const databaseUrl = cleanEnvUrl(process.env["DATABASE_URL"]);
+const directUrlValid = isPostgresUrl(directUrl);
+const databaseUrlValid = isPostgresUrl(databaseUrl);
+const datasourceUrl = directUrlValid ? directUrl : databaseUrlValid ? databaseUrl : directUrl || databaseUrl;
 const prismaCommand = process.argv.slice(2).join(" ");
 const needsDatasourceUrl =
   prismaCommand.includes("migrate") || prismaCommand.includes("db push");
@@ -12,6 +38,17 @@ if (!datasourceUrl && needsDatasourceUrl) {
   throw new Error(
     "Prisma migrations require DIRECT_URL or DATABASE_URL. Create .env from .env.example and set a PostgreSQL connection string.",
   );
+}
+
+if (datasourceUrl && !isPostgresUrl(datasourceUrl)) {
+  const invalidSource = directUrl && !directUrlValid ? "DIRECT_URL" : "DATABASE_URL";
+  throw new Error(
+    `${invalidSource} must start with postgresql:// or postgres://. Do not include the variable name, literal quotes, or an unescaped password in the value.`,
+  );
+}
+
+if (directUrl && !directUrlValid && databaseUrlValid) {
+  console.warn("[prisma] Ignoring invalid DIRECT_URL and using DATABASE_URL for Prisma CLI commands.");
 }
 
 export default defineConfig({
