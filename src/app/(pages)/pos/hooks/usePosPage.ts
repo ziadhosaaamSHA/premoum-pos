@@ -3,9 +3,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
 import { useBranding } from "@/context/BrandingContext";
 import { ApiError, apiRequest } from "@/lib/api";
+import { isRetailMode } from "@/lib/businessMode";
 import { money } from "@/lib/format";
-import { buildReceiptSnapshot, ReceiptSnapshot } from "@/lib/receipt";
-import {
+import { buildReceiptSnapshot, type ReceiptSnapshot } from "@/lib/receipt";
+import type {
+  BusinessMode,
   CartItem,
   CustomCartItem,
   DeferredPricing,
@@ -35,6 +37,7 @@ export function usePosPage() {
   const [zones, setZones] = useState<PosZone[]>([]);
   const [tables, setTables] = useState<PosTable[]>([]);
   const [taxes, setTaxes] = useState<PosTax[]>([]);
+  const [businessMode, setBusinessMode] = useState<BusinessMode>("cafe_restaurant");
 
   const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
@@ -83,7 +86,9 @@ export function usePosPage() {
     [tables, tableId]
   );
 
-  const appendToOrderId = orderType === "dine_in" ? selectedTable?.activeOrder?.id || null : null;
+  const retailMode = isRetailMode(businessMode);
+  const appendToOrderId =
+    !retailMode && orderType === "dine_in" ? selectedTable?.activeOrder?.id || null : null;
 
   const fetchBootstrap = useCallback(async () => {
     try {
@@ -94,7 +99,9 @@ export function usePosPage() {
         zones: PosZone[];
         tables: PosTable[];
         taxes: PosTax[];
+        businessMode: BusinessMode;
       }>("/api/pos/bootstrap");
+      const nextRetailMode = isRetailMode(data.businessMode);
 
       setCategories(data.categories || []);
       setProducts(data.products || []);
@@ -102,8 +109,10 @@ export function usePosPage() {
       setZones(data.zones || []);
       setTables(data.tables || []);
       setTaxes(data.taxes || []);
+      setBusinessMode(data.businessMode || "cafe_restaurant");
 
       setZoneId((current) => {
+        if (nextRetailMode) return "";
         if (!data.zones?.length) return "";
         const valid = data.zones.some((zone) => zone.id === current && zone.status === "active");
         if (valid) return current;
@@ -111,6 +120,7 @@ export function usePosPage() {
       });
 
       setTableId((current) => {
+        if (nextRetailMode) return "";
         if (!data.tables?.length) return "";
         const valid = data.tables.some((table) => table.id === current);
         if (valid) return current;
@@ -155,22 +165,35 @@ export function usePosPage() {
   }, [fetchBootstrap]);
 
   useEffect(() => {
+    if (retailMode) return;
     if (orderType !== "delivery") return;
     if (!activeZones.some((zone) => zone.id === zoneId)) {
       setZoneId(activeZones[0]?.id || "");
     }
-  }, [activeZones, orderType, zoneId]);
+  }, [activeZones, orderType, retailMode, zoneId]);
 
   useEffect(() => {
+    if (retailMode) return;
     if (orderType !== "dine_in") return;
     if (!dineInTables.some((table) => table.id === tableId)) {
       const preferred = dineInTables.find((table) => table.status === "empty") || dineInTables[0];
       setTableId(preferred?.id || "");
     }
-  }, [dineInTables, orderType, tableId]);
+  }, [dineInTables, orderType, retailMode, tableId]);
 
   useEffect(() => {
-    if (initialRouteAppliedRef.current || tables.length === 0) return;
+    if (!retailMode) return;
+    setOrderType("delivery");
+    setTableId("");
+    setZoneId("");
+    setBusyDrawerOpen(false);
+    setActiveTableOrder(null);
+    setFinishModalOpen(false);
+    setFinishAdjustments([]);
+  }, [retailMode]);
+
+  useEffect(() => {
+    if (retailMode || initialRouteAppliedRef.current || tables.length === 0) return;
 
     const routeTableId = searchParams.get("tableId");
     if (routeTableId) {
@@ -182,7 +205,7 @@ export function usePosPage() {
     }
 
     initialRouteAppliedRef.current = true;
-  }, [searchParams, tables]);
+  }, [retailMode, searchParams, tables]);
 
   useEffect(() => {
     if (!appendToOrderId) {
@@ -229,10 +252,11 @@ export function usePosPage() {
   );
 
   const deliveryFee = useMemo(() => {
+    if (retailMode) return 0;
     if (orderType !== "delivery") return 0;
     const zone = zones.find((entry) => entry.id === zoneId);
     return zone?.fee || 0;
-  }, [orderType, zoneId, zones]);
+  }, [orderType, retailMode, zoneId, zones]);
 
   const defaultTax = useMemo(() => taxes.find((tax) => tax.isDefault && tax.isActive) || null, [taxes]);
   const defaultTaxRate = defaultTax?.rate || 0;
@@ -397,15 +421,23 @@ export function usePosPage() {
 
   const validateBeforeSubmit = useCallback(() => {
     if (cart.length === 0) return "السلة فارغة";
-    if (orderType === "delivery" && !zoneId) return "اختر نطاق التوصيل";
-    if (orderType === "dine_in" && !tableId) return "اختر طاولة أولاً";
-    if (orderType === "dine_in" && selectedTable?.status === "occupied" && !selectedTable.activeOrder) {
+    if (!retailMode && orderType === "delivery" && !zoneId) return "اختر نطاق التوصيل";
+    if (!retailMode && orderType === "dine_in" && !tableId) return "اختر طاولة أولاً";
+    if (!retailMode && orderType === "dine_in" && selectedTable?.status === "occupied" && !selectedTable.activeOrder) {
       return "الطاولة مشغولة بدون طلب نشط، اربطها بطلب أولاً من صفحة الطلبيات";
     }
     return null;
-  }, [cart.length, orderType, zoneId, tableId, selectedTable]);
+  }, [cart.length, orderType, retailMode, selectedTable, tableId, zoneId]);
 
   const submitConfirmContent = useMemo(() => {
+    if (retailMode) {
+      return {
+        title: "تأكيد البيع",
+        confirmLabel: "إنهاء البيع",
+        message: `سيتم تسجيل بيع مباشر مدفوع بإجمالي ${money(total)}.`,
+      };
+    }
+
     if (appendToOrderId) {
       return {
         title: "تأكيد إضافة عناصر",
@@ -439,7 +471,7 @@ export function usePosPage() {
       confirmLabel: "تأكيد الطلب",
       message: `سيتم تأكيد الطلب وإنشاء فاتورة مدفوعة مباشرة بإجمالي ${money(total)}.`,
     };
-  }, [appendToOrderId, cartCount, cartSubtotal, orderType, selectedTable, total]);
+  }, [appendToOrderId, cartCount, cartSubtotal, orderType, retailMode, selectedTable, total]);
 
   const openSubmitConfirmation = () => {
     const validationError = validateBeforeSubmit();
@@ -506,7 +538,17 @@ export function usePosPage() {
     }
 
     const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setCart((prev) => [...prev, { ...item, id, type: "custom", name, qty: 1 }]);
+    setCart((prev) => [
+      ...prev,
+      {
+        ...item,
+        id,
+        type: "custom",
+        name,
+        qty: 1,
+        recipeProductId: retailMode ? null : item.recipeProductId,
+      },
+    ]);
     setLastAddedCartItemId(id);
     pushToast("تمت إضافة الطلب الخاص إلى السلة", "success");
     return true;
@@ -547,8 +589,9 @@ export function usePosPage() {
   const startNewOrder = useCallback(() => {
     const firstEmptyTable = dineInTables.find((table) => table.status === "empty");
     setBusyDrawerOpen(false);
-    setOrderType("dine_in");
-    setTableId(firstEmptyTable?.id || "");
+    setOrderType(retailMode ? "delivery" : "dine_in");
+    setTableId(retailMode ? "" : firstEmptyTable?.id || "");
+    setZoneId("");
     setCart([]);
     setLastAddedCartItemId(null);
     setDiscountRate(0);
@@ -556,7 +599,7 @@ export function usePosPage() {
     setActiveTableOrder(null);
     setFinishModalOpen(false);
     setFinishAdjustments([]);
-  }, [dineInTables]);
+  }, [dineInTables, retailMode]);
 
   const undoLastItem = () => {
     if (!lastAddedCartItemId) {
@@ -583,6 +626,11 @@ export function usePosPage() {
   };
 
   const openFinishOrderModal = () => {
+    if (retailMode) {
+      pushToast("وضع التجزئة لا يستخدم إنهاء الطاولات", "error");
+      return;
+    }
+
     if (!appendToOrderId) {
       pushToast("اختر طاولة مشغولة مرتبطة بطلب نشط أولاً", "error");
       return;
@@ -704,18 +752,21 @@ export function usePosPage() {
     setSubmitConfirmOpen(false);
     setSubmitting(true);
     try {
-      const isDineIn = orderType === "dine_in";
+      const effectiveOrderType: OrderTypeUi = retailMode ? "delivery" : orderType;
+      const isDineIn = !retailMode && effectiveOrderType === "dine_in";
       const payload = {
-        type: orderType,
+        type: effectiveOrderType,
         customerName:
-          orderType === "dine_in"
+          retailMode
+            ? "عميل بيع مباشر"
+            : effectiveOrderType === "dine_in"
             ? "عميل صالة"
-            : orderType === "takeaway"
+            : effectiveOrderType === "takeaway"
               ? "عميل تيك أواي"
               : "عميل توصيل",
-        zoneId: orderType === "delivery" ? zoneId : null,
-        tableId: orderType === "dine_in" ? tableId : null,
-        appendToOrderId: orderType === "dine_in" ? appendToOrderId : null,
+        zoneId: effectiveOrderType === "delivery" && !retailMode ? zoneId : null,
+        tableId: isDineIn ? tableId : null,
+        appendToOrderId: isDineIn ? appendToOrderId : null,
         discount: isDineIn ? 0 : discountAmount,
         taxRate: isDineIn ? 0 : combinedTaxRate,
         payment,
@@ -726,7 +777,7 @@ export function usePosPage() {
                 name: item.name,
                 unitPrice: item.unitPrice,
                 quantity: item.qty,
-                recipeProductId: item.recipeProductId,
+                recipeProductId: retailMode ? null : item.recipeProductId,
                 materials: item.materials,
               }
         ),
@@ -739,7 +790,7 @@ export function usePosPage() {
         body: JSON.stringify(payload),
       });
 
-      if (orderType !== "dine_in") {
+      if (effectiveOrderType !== "dine_in") {
         const fallbackItems = cart.map((item) => {
           if (item.type === "custom") {
             return {
@@ -763,14 +814,17 @@ export function usePosPage() {
           code: result.order.code,
           createdAt: new Date().toISOString(),
           customerName: payload.customerName,
-          orderType,
+          orderType: effectiveOrderType,
           payment,
           brandName: branding.brandName,
           brandTagline: branding.brandTagline || undefined,
           logoUrl: branding.logoUrl || null,
-          tableName: selectedTable?.name || null,
-          tableNumber: selectedTable?.number ?? null,
-          zoneName: orderType === "delivery" ? zones.find((zone) => zone.id === zoneId)?.name || null : null,
+          tableName: isDineIn ? selectedTable?.name || null : null,
+          tableNumber: isDineIn ? selectedTable?.number ?? null : null,
+          zoneName:
+            effectiveOrderType === "delivery" && !retailMode
+              ? zones.find((zone) => zone.id === zoneId)?.name || null
+              : null,
           items: fallbackItems,
           discount: discountAmount,
           taxRate: combinedTaxRate,
@@ -787,7 +841,7 @@ export function usePosPage() {
       setCart([]);
       setLastAddedCartItemId(null);
 
-      if (orderType === "dine_in") {
+      if (isDineIn) {
         const targetOrderId = isAppending ? appendToOrderId : result.order.id;
         if (targetOrderId) {
           setDeferredPricingByOrder((prev) => ({
@@ -804,7 +858,7 @@ export function usePosPage() {
         setExtraTaxRate(0);
       }
 
-      if (orderType === "dine_in") {
+      if (isDineIn) {
         pushToast(
           isAppending
             ? `تمت إضافة عناصر جديدة إلى ${selectedTable?.name || "الطاولة"}`
@@ -817,7 +871,7 @@ export function usePosPage() {
 
       await fetchBootstrap();
 
-      if (orderType === "dine_in") {
+      if (isDineIn) {
         if (isAppending && appendToOrderId) {
           setActiveOrderLoading(true);
           await loadActiveOrder(appendToOrderId, false);
@@ -850,6 +904,7 @@ export function usePosPage() {
     addCustomOrder,
     addToCart,
     appendToOrderId,
+    businessMode,
     busyDrawerOpen,
     busyTables,
     cart,
@@ -886,6 +941,7 @@ export function usePosPage() {
     projectedActiveOrder,
     receipt,
     receiptOpen,
+    retailMode,
     search,
     selectedTable,
     setBusyDrawerOpen,

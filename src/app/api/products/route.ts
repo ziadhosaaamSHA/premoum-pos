@@ -4,6 +4,8 @@ import { requireAuth } from "@/server/auth/guards";
 import { HttpError, jsonError, jsonOk, readJson } from "@/server/http";
 import { mapProduct } from "@/server/products/mappers";
 import { productCreateSchema } from "@/server/validation/schemas";
+import { isRetailMode } from "@/lib/businessMode";
+import { fetchSystemSettings } from "@/server/system/setup";
 
 const productInclude = {
   category: {
@@ -57,6 +59,8 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth(request, { allPermissions: ["products:manage"] });
     const payload = await readJson(request, productCreateSchema);
+    const settings = await fetchSystemSettings(db);
+    const recipeInput = isRetailMode(settings.businessMode) ? [] : payload.recipe;
 
     const name = payload.name.trim();
     const category = await db.category.findUnique({
@@ -75,7 +79,7 @@ export async function POST(request: NextRequest) {
       throw new HttpError(409, "product_exists", "Product name already exists");
     }
 
-    const materialIds = Array.from(new Set(payload.recipe.map((item) => item.materialId)));
+    const materialIds = Array.from(new Set(recipeInput.map((item) => item.materialId)));
     if (materialIds.length) {
       const materials = await db.material.findMany({
         where: { id: { in: materialIds } },
@@ -93,10 +97,10 @@ export async function POST(request: NextRequest) {
         price: payload.price,
         isActive: payload.isActive,
         imageUrl: payload.imageUrl?.trim() || null,
-        recipeItems: payload.recipe.length
+        recipeItems: recipeInput.length
           ? {
               createMany: {
-                data: payload.recipe.map((item) => ({
+                data: recipeInput.map((item) => ({
                   materialId: item.materialId,
                   quantity: item.quantity,
                 })),

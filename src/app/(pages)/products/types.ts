@@ -1,4 +1,7 @@
+import type { BusinessMode } from "@/lib/businessMode";
+
 export type ProductsTab = "products" | "recipes" | "categories";
+export type { BusinessMode };
 
 export type CategoryRow = {
   id: string;

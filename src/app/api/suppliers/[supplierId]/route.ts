@@ -106,19 +106,23 @@ export async function DELETE(
       throw new HttpError(404, "supplier_not_found", "Supplier not found");
     }
 
-    if (supplier.purchases.length > 0) {
-      await db.supplier.update({
-        where: { id: supplier.id },
-        data: { isActive: false },
-      });
-      return jsonOk({ deleted: true, mode: "deactivated" });
-    }
+    await db.$transaction(async (tx) => {
+      if (supplier.purchases.length > 0) {
+        await tx.purchase.deleteMany({
+          where: { supplierId: supplier.id },
+        });
+      }
 
-    await db.supplier.delete({
-      where: { id: supplier.id },
+      await tx.supplier.delete({
+        where: { id: supplier.id },
+      });
     });
 
-    return jsonOk({ deleted: true, mode: "hard" });
+    return jsonOk({
+      deleted: true,
+      mode: supplier.purchases.length > 0 ? "hard_with_purchases" : "hard",
+      deletedPurchases: supplier.purchases.length,
+    });
   } catch (error) {
     return jsonError(error);
   }

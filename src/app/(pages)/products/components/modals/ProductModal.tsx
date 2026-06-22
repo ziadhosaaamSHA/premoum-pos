@@ -14,6 +14,7 @@ type ProductModalProps = Pick<
   | "recipeEstimatedCost"
   | "recipeForm"
   | "removeRecipeLine"
+  | "retailMode"
   | "selectedProduct"
   | "setProductForm"
   | "setProductModal"
@@ -44,6 +45,7 @@ export default function ProductModal({
   recipeEstimatedCost,
   recipeForm,
   removeRecipeLine,
+  retailMode,
   selectedProduct,
   setProductForm,
   setProductModal,
@@ -68,7 +70,7 @@ export default function ProductModal({
               { label: "اسم المنتج", value: selectedProduct.name },
               { label: "الفئة", value: selectedProduct.categoryName },
               { label: "السعر", value: money(selectedProduct.price) },
-              { label: "تكلفة المنتج", value: money(selectedProduct.cost) },
+              ...(retailMode ? [] : [{ label: "تكلفة المنتج", value: money(selectedProduct.cost) }]),
             ]
           : []
       }
@@ -82,32 +84,34 @@ export default function ProductModal({
                 <span>{selectedProduct.categoryName}</span>
               </div>
             </div>
-            <table className="view-table" style={{ marginTop: 12 }}>
-              <thead>
-                <tr>
-                  <th>المادة</th>
-                  <th>الكمية</th>
-                  <th>التكلفة</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedProduct.recipe.length === 0 ? (
+            {!retailMode ? (
+              <table className="view-table" style={{ marginTop: 12 }}>
+                <thead>
                   <tr>
-                    <td colSpan={3}>لا توجد وصفة</td>
+                    <th>المادة</th>
+                    <th>الكمية</th>
+                    <th>التكلفة</th>
                   </tr>
-                ) : (
-                  selectedProduct.recipe.map((line) => (
-                    <tr key={line.id}>
-                      <td>{line.materialName}</td>
-                      <td>
-                        {num2(line.qty)} {line.unit}
-                      </td>
-                      <td>{money(line.materialCost * line.qty)}</td>
+                </thead>
+                <tbody>
+                  {selectedProduct.recipe.length === 0 ? (
+                    <tr>
+                      <td colSpan={3}>لا توجد وصفة</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    selectedProduct.recipe.map((line) => (
+                      <tr key={line.id}>
+                        <td>{line.materialName}</td>
+                        <td>
+                          {num2(line.qty)} {line.unit}
+                        </td>
+                        <td>{money(line.materialCost * line.qty)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            ) : null}
           </>
         ) : null
       }
@@ -180,59 +184,63 @@ export default function ProductModal({
           المنتج نشط ومتاح في البيع
         </label>
 
-        <div className="section-header-actions no-tip" style={{ marginTop: 6 }}>
-          <h3>الوصفة</h3>
-          <Button variant="ghost" icon="bx bx-plus" onClick={addRecipeLine}>
-            إضافة مكون
-          </Button>
-        </div>
+        {!retailMode ? (
+          <>
+            <div className="section-header-actions no-tip" style={{ marginTop: 6 }}>
+              <h3>الوصفة</h3>
+              <Button variant="ghost" icon="bx bx-plus" onClick={addRecipeLine}>
+                إضافة مكون
+              </Button>
+            </div>
 
-        {recipeForm.length === 0 ? (
-          <p className="hint">لا توجد مكونات. يمكنك الحفظ بدون وصفة.</p>
-        ) : (
-          <div className="recipe-editor">
-            <div className="recipe-header">
-              <span>المادة</span>
-              <span>الكمية</span>
-              <span>الوحدة</span>
-              <span>التكلفة</span>
-              <span>إجراء</span>
-            </div>
-            {recipeForm.map((line, index) => {
-              const material = materials.find((entry) => entry.id === line.materialId);
-              const unit = material?.unit || "—";
-              const lineCost = material ? material.cost * line.quantity : 0;
-              return (
-                <div key={`${line.materialId}-${index}`} className="recipe-row">
-                  <select
-                    value={line.materialId}
-                    onChange={(event) => updateRecipeLine(index, { materialId: event.target.value })}
-                  >
-                    {materials.map((materialOption) => (
-                      <option key={materialOption.id} value={materialOption.id}>
-                        {materialOption.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    value={line.quantity}
-                    min={0.001}
-                    step="0.001"
-                    onChange={(event) => updateRecipeLine(index, { quantity: Number(event.target.value || 0) })}
-                  />
-                  <span className="recipe-unit">{unit}</span>
-                  <span className="recipe-cost">{money(lineCost)}</span>
-                  <Button variant="danger" icon="bx bx-trash" onClick={() => removeRecipeLine(index)} />
+            {recipeForm.length === 0 ? (
+              <p className="hint">لا توجد مكونات. يمكنك الحفظ بدون وصفة.</p>
+            ) : (
+              <div className="recipe-editor">
+                <div className="recipe-header">
+                  <span>المادة</span>
+                  <span>الكمية</span>
+                  <span>الوحدة</span>
+                  <span>التكلفة</span>
+                  <span>إجراء</span>
                 </div>
-              );
-            })}
-            <div className="recipe-summary">
-              <span>إجمالي تكلفة الوصفة</span>
-              <strong>{money(recipeEstimatedCost)}</strong>
-            </div>
-          </div>
-        )}
+                {recipeForm.map((line, index) => {
+                  const material = materials.find((entry) => entry.id === line.materialId);
+                  const unit = material?.unit || "—";
+                  const lineCost = material ? material.cost * line.quantity : 0;
+                  return (
+                    <div key={`${line.materialId}-${index}`} className="recipe-row">
+                      <select
+                        value={line.materialId}
+                        onChange={(event) => updateRecipeLine(index, { materialId: event.target.value })}
+                      >
+                        {materials.map((materialOption) => (
+                          <option key={materialOption.id} value={materialOption.id}>
+                            {materialOption.name}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        value={line.quantity}
+                        min={0.001}
+                        step="0.001"
+                        onChange={(event) => updateRecipeLine(index, { quantity: Number(event.target.value || 0) })}
+                      />
+                      <span className="recipe-unit">{unit}</span>
+                      <span className="recipe-cost">{money(lineCost)}</span>
+                      <Button variant="danger" icon="bx bx-trash" onClick={() => removeRecipeLine(index)} />
+                    </div>
+                  );
+                })}
+                <div className="recipe-summary">
+                  <span>إجمالي تكلفة الوصفة</span>
+                  <strong>{money(recipeEstimatedCost)}</strong>
+                </div>
+              </div>
+            )}
+          </>
+        ) : null}
       </ModalForm>
     </EntityModal>
   );

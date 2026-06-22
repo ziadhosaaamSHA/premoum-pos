@@ -3,7 +3,9 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
 import { ApiError, apiRequest } from "@/lib/api";
-import {
+import { isRetailMode } from "@/lib/businessMode";
+import type {
+  BusinessMode,
   CategoryModalState,
   CategoryRow,
   MaterialRef,
@@ -91,6 +93,7 @@ export function useProductsPage() {
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [materials, setMaterials] = useState<MaterialRef[]>([]);
   const [products, setProducts] = useState<ProductRow[]>([]);
+  const [businessMode, setBusinessMode] = useState<BusinessMode>("cafe_restaurant");
 
   const [activeTab, setActiveTab] = useState<ProductsTab>("products");
   const [searchProducts, setSearchProducts] = useState("");
@@ -111,6 +114,7 @@ export function useProductsPage() {
     imageUrl: "",
   });
   const [recipeForm, setRecipeForm] = useState<RecipeDraftLine[]>([]);
+  const retailMode = isRetailMode(businessMode);
 
   const [categoryForm, setCategoryForm] = useState({
     name: "",
@@ -136,11 +140,13 @@ export function useProductsPage() {
           categories: CategoryRow[];
           materials: MaterialRef[];
           products: ProductRow[];
+          businessMode: BusinessMode;
         }>("/api/products/bootstrap");
 
         setCategories(data.categories);
         setMaterials(data.materials);
         setProducts(data.products);
+        setBusinessMode(data.businessMode || "cafe_restaurant");
       } catch (error) {
         handleError(error, "تعذر تحميل بيانات المنتجات");
       } finally {
@@ -159,6 +165,12 @@ export function useProductsPage() {
     setProductForm((prev) => ({ ...prev, categoryId: categories[0].id }));
   }, [categories, productForm.categoryId]);
 
+  useEffect(() => {
+    if (retailMode && activeTab === "recipes") {
+      setActiveTab("products");
+    }
+  }, [activeTab, retailMode]);
+
   const filteredProducts = useMemo(() => {
     const q = searchProducts.trim().toLowerCase();
     return products.filter((product) => {
@@ -170,6 +182,7 @@ export function useProductsPage() {
   }, [productCategoryFilter, products, searchProducts]);
 
   const filteredRecipes = useMemo(() => {
+    if (retailMode) return [];
     const q = searchRecipes.trim().toLowerCase();
     return products.filter((product) => {
       const ingredients = product.recipe.map((line) => line.materialName).join(" ").toLowerCase();
@@ -180,7 +193,7 @@ export function useProductsPage() {
         (recipeCostFilter === "high" && product.cost >= 20);
       return matchesSearch && matchesCost;
     });
-  }, [products, recipeCostFilter, searchRecipes]);
+  }, [products, recipeCostFilter, retailMode, searchRecipes]);
 
   const filteredCategories = useMemo(() => {
     const q = searchCategories.trim().toLowerCase();
@@ -210,7 +223,7 @@ export function useProductsPage() {
           isActive: true,
           imageUrl: "",
         });
-        setRecipeForm(materials[0] ? [{ materialId: materials[0].id, quantity: 1 }] : []);
+        setRecipeForm(!retailMode && materials[0] ? [{ materialId: materials[0].id, quantity: 1 }] : []);
         setProductModal({ mode: "create" });
         return;
       }
@@ -225,10 +238,12 @@ export function useProductsPage() {
         isActive: product.isActive,
         imageUrl: product.imageUrl || "",
       });
-      setRecipeForm(product.recipe.map((line) => ({ materialId: line.materialId, quantity: line.qty })));
+      setRecipeForm(
+        retailMode ? [] : product.recipe.map((line) => ({ materialId: line.materialId, quantity: line.qty }))
+      );
       setProductModal({ mode, id: product.id });
     },
-    [categories, materials, products]
+    [categories, materials, products, retailMode]
   );
 
   const openCategoryModal = useCallback(
@@ -249,9 +264,9 @@ export function useProductsPage() {
   );
 
   const addRecipeLine = useCallback(() => {
-    if (materials.length === 0) return;
+    if (retailMode || materials.length === 0) return;
     setRecipeForm((prev) => [...prev, { materialId: materials[0].id, quantity: 1 }]);
-  }, [materials]);
+  }, [materials, retailMode]);
 
   const removeRecipeLine = useCallback((index: number) => {
     setRecipeForm((prev) => prev.filter((_, i) => i !== index));
@@ -263,18 +278,21 @@ export function useProductsPage() {
 
   const recipePayload = useMemo(
     () =>
-      recipeForm
+      retailMode
+        ? []
+        : recipeForm
         .filter((line) => line.materialId && line.quantity > 0)
         .map((line) => ({ materialId: line.materialId, quantity: line.quantity })),
-    [recipeForm]
+    [recipeForm, retailMode]
   );
 
   const recipeEstimatedCost = useMemo(() => {
+    if (retailMode) return 0;
     return recipeForm.reduce((sum, line) => {
       const material = materials.find((entry) => entry.id === line.materialId);
       return sum + (material ? material.cost * line.quantity : 0);
     }, 0);
-  }, [materials, recipeForm]);
+  }, [materials, recipeForm, retailMode]);
 
   const handleProductImageUpload = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -303,7 +321,7 @@ export function useProductsPage() {
         const payload = {
           ...productForm,
           imageUrl: productForm.imageUrl.trim() || null,
-          recipe: recipePayload,
+          ...(retailMode ? {} : { recipe: recipePayload }),
         };
 
         if (productModal.mode === "create") {
@@ -328,7 +346,7 @@ export function useProductsPage() {
         setSubmitting(false);
       }
     },
-    [handleError, loadData, productForm, productModal, pushToast, recipePayload]
+    [handleError, loadData, productForm, productModal, pushToast, recipePayload, retailMode]
   );
 
   const submitCategory = useCallback(
@@ -366,6 +384,7 @@ export function useProductsPage() {
   return {
     activeTab,
     addRecipeLine,
+    businessMode,
     categories,
     categoryForm,
     categoryModal,
@@ -385,6 +404,7 @@ export function useProductsPage() {
     recipeCostFilter,
     recipeEstimatedCost,
     recipeForm,
+    retailMode,
     removeRecipeLine,
     searchCategories,
     searchProducts,

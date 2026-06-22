@@ -17,10 +17,12 @@ type OrdersTabsProps = {
 };
 
 export default function OrdersTabs({ state }: OrdersTabsProps) {
+  const visibleTabs = state.retailMode ? tabs.filter((tab) => tab.value !== "tables") : tabs;
+
   return (
     <>
-      <Tabs value={state.activeTab} items={tabs} onChange={state.setActiveTab} />
-      {state.activeTab === "tables" ? <TablesPanel {...state} /> : null}
+      <Tabs value={state.activeTab} items={visibleTabs} onChange={state.setActiveTab} />
+      {!state.retailMode && state.activeTab === "tables" ? <TablesPanel {...state} /> : null}
       {state.activeTab === "current" ? (
         <OrdersTable
           {...state}

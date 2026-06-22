@@ -6,8 +6,9 @@ import { ApiError, apiRequest } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
 import { Branding, useBranding } from "@/context/BrandingContext";
 import { useAuth } from "@/context/AuthContext";
+import type { BusinessMode } from "@/lib/businessMode";
 
-type SetupStep = "welcome" | "owner" | "branding" | "taxes" | "done";
+type SetupStep = "welcome" | "owner" | "mode" | "branding" | "taxes" | "done";
 
 type TaxRow = {
   id: string;
@@ -21,6 +22,7 @@ const HEX_COLOR = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const STEP_LABELS: Record<SetupStep, string> = {
   welcome: "مرحبا",
   owner: "مالك النظام",
+  mode: "نوع النشاط",
   branding: "الهوية البصرية",
   taxes: "الضرائب",
   done: "الإنهاء",
@@ -47,7 +49,12 @@ export default function SetupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [taxes, setTaxes] = useState<TaxRow[]>([]);
   const [useDefaultTax, setUseDefaultTax] = useState(false);
-  const [setupInfo, setSetupInfo] = useState({ isComplete: false, hasOwner: true });
+  const [setupInfo, setSetupInfo] = useState<{
+    isComplete: boolean;
+    hasOwner: boolean;
+    businessMode: BusinessMode;
+  }>({ isComplete: false, hasOwner: true, businessMode: "cafe_restaurant" });
+  const [businessMode, setBusinessMode] = useState<BusinessMode>("cafe_restaurant");
 
   const [ownerForm, setOwnerForm] = useState({
     fullName: "",
@@ -85,7 +92,7 @@ export default function SetupPage() {
 
   const requiresOwner = !setupInfo.hasOwner;
   const stepOrder = useMemo<SetupStep[]>(() => {
-    const steps: SetupStep[] = ["welcome", "branding", "taxes", "done"];
+    const steps: SetupStep[] = ["welcome", "mode", "branding", "taxes", "done"];
     if (requiresOwner) {
       steps.splice(1, 0, "owner");
     }
@@ -152,8 +159,15 @@ export default function SetupPage() {
   const fetchSetupState = useCallback(async (options?: { forceTaxes?: boolean }) => {
     setLoading(true);
     try {
-      const payload = await apiRequest<{ setup: { isComplete: boolean; hasOwner: boolean } }>("/api/system/setup");
-      setSetupInfo({ isComplete: payload.setup.isComplete, hasOwner: payload.setup.hasOwner });
+      const payload = await apiRequest<{
+        setup: { isComplete: boolean; hasOwner: boolean; businessMode: BusinessMode };
+      }>("/api/system/setup");
+      setSetupInfo({
+        isComplete: payload.setup.isComplete,
+        hasOwner: payload.setup.hasOwner,
+        businessMode: payload.setup.businessMode,
+      });
+      setBusinessMode(payload.setup.businessMode);
       if (payload.setup.isComplete) {
         router.replace("/dashboard");
         return;
@@ -291,6 +305,7 @@ export default function SetupPage() {
     try {
       await apiRequest<{ setup: { isComplete: boolean } }>("/api/system/setup", {
         method: "POST",
+        body: JSON.stringify({ businessMode }),
       });
       pushToast("تم إنهاء الإعدادات الأساسية", "success");
       router.replace("/dashboard");
@@ -346,6 +361,7 @@ export default function SetupPage() {
               </p>
               <div className="setup-list">
                 <div>إنشاء حساب مالك النظام لأول مرة.</div>
+                <div>اختيار نوع النشاط: مطعم/كافيه أو بيع تجزئة.</div>
                 <div>ضبط الهوية البصرية والألوان الرسمية.</div>
                 <div>تحديد الضرائب الافتراضية إذا رغبت.</div>
               </div>
@@ -366,6 +382,51 @@ export default function SetupPage() {
           <div className="setup-actions">
             <button className="primary" type="button" onClick={goNext} disabled={submitting}>
               ابدأ الإعداد
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === "mode" && (
+        <div className="card wide">
+          <div className="section-header-actions no-tip">
+            <div>
+              <h2>نوع النشاط</h2>
+              <p className="hint">اختيار الوضع يحدد تجربة الكاشير والمنتجات المناسبة لطبيعة العمل.</p>
+            </div>
+          </div>
+          <div className="form">
+            <label className="radio-card">
+              <input
+                type="radio"
+                name="businessMode"
+                checked={businessMode === "cafe_restaurant"}
+                onChange={() => setBusinessMode("cafe_restaurant")}
+              />
+              <div>
+                <strong>كافيه / مطعم</strong>
+                <span>يشمل الطاولات، الطلبات النشطة، الوصفات، وخصم مكونات المنتجات من المخزون.</span>
+              </div>
+            </label>
+            <label className="radio-card">
+              <input
+                type="radio"
+                name="businessMode"
+                checked={businessMode === "retail"}
+                onChange={() => setBusinessMode("retail")}
+              />
+              <div>
+                <strong>بيع تجزئة</strong>
+                <span>كاشير مباشر بدون طاولات أو وصفات، والطلب يتم إغلاقه فور التأكيد.</span>
+              </div>
+            </label>
+          </div>
+          <div className="setup-actions">
+            <button className="ghost" type="button" onClick={goPrev} disabled={submitting}>
+              رجوع
+            </button>
+            <button className="primary" type="button" onClick={goNext} disabled={submitting}>
+              متابعة
             </button>
           </div>
         </div>

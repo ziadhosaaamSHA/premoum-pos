@@ -57,6 +57,7 @@ export default function PosPageClient() {
     projectedActiveOrder,
     receipt,
     receiptOpen,
+    retailMode,
     search,
     selectedTable,
     setBusyDrawerOpen,
@@ -104,7 +105,14 @@ export default function PosPageClient() {
               <i className="bx bx-edit-alt"></i>
               طلب خاص
             </button>
-            <OrderTypeSwitcher orderType={orderType} onChange={setOrderType} />
+            {retailMode ? (
+              <div className="retail-mode-pill">
+                <i className="bx bx-shopping-bag"></i>
+                بيع مباشر
+              </div>
+            ) : (
+              <OrderTypeSwitcher orderType={orderType} onChange={setOrderType} />
+            )}
             <div className="search-bar-wrapper">
               <i className="bx bx-search"></i>
               <input
@@ -137,25 +145,29 @@ export default function PosPageClient() {
               onAdd={addToCart}
             />
 
-            <BusyTablesDrawer
-              open={busyDrawerOpen}
-              busyTables={busyTables}
-              selectedTableId={tableId}
-              onClose={() => setBusyDrawerOpen(false)}
-              onSelect={(nextTableId) => {
-                setOrderType("dine_in");
-                setTableId(nextTableId);
-                setBusyDrawerOpen(false);
-              }}
-            />
+            {!retailMode ? (
+              <BusyTablesDrawer
+                open={busyDrawerOpen}
+                busyTables={busyTables}
+                selectedTableId={tableId}
+                onClose={() => setBusyDrawerOpen(false)}
+                onSelect={(nextTableId) => {
+                  setOrderType("dine_in");
+                  setTableId(nextTableId);
+                  setBusyDrawerOpen(false);
+                }}
+              />
+            ) : null}
           </div>
 
-          <QuickActions
-            onToggleBusyTables={() => setBusyDrawerOpen((prev) => !prev)}
-            onNewOrder={startNewOrder}
-            onUndo={undoLastItem}
-            onExpense={goToFinance}
-          />
+          {!retailMode ? (
+            <QuickActions
+              onToggleBusyTables={() => setBusyDrawerOpen((prev) => !prev)}
+              onNewOrder={startNewOrder}
+              onUndo={undoLastItem}
+              onExpense={goToFinance}
+            />
+          ) : null}
         </div>
 
         <div className="pos-panel cart-panel">
@@ -211,7 +223,7 @@ export default function PosPageClient() {
             </div>
 
             <div className="cart-options">
-              {orderType === "delivery" && (
+              {!retailMode && orderType === "delivery" && (
                 <div className="field">
                   <label>نطاق التوصيل</label>
                   <select value={zoneId} onChange={(event) => setZoneId(event.target.value)}>
@@ -224,7 +236,7 @@ export default function PosPageClient() {
                 </div>
               )}
 
-              {orderType === "dine_in" && (
+              {!retailMode && orderType === "dine_in" && (
                 <div className="field">
                   <label>اختيار الطاولة</label>
                   <select value={tableId} onChange={(event) => setTableId(event.target.value)}>
@@ -368,10 +380,12 @@ export default function PosPageClient() {
                     <span>ضريبة ({combinedTaxRate.toFixed(2)}%)</span>
                     <strong>{money(taxAmount)}</strong>
                   </div>
-                  <div className="summary-row">
-                    <span>رسوم التوصيل</span>
-                    <strong>{money(deliveryFee)}</strong>
-                  </div>
+                  {!retailMode ? (
+                    <div className="summary-row">
+                      <span>رسوم التوصيل</span>
+                      <strong>{money(deliveryFee)}</strong>
+                    </div>
+                  ) : null}
                   <div className="summary-row highlight">
                     <span>الإجمالي النهائي</span>
                     <strong>{money(total)}</strong>
@@ -417,35 +431,40 @@ export default function PosPageClient() {
                 disabled={submitting || cart.length === 0}
               >
                 <i className="bx bx-check-circle"></i>
-                {submitting ? "جارٍ التأكيد..." : "تأكيد الطلب"}
+                {submitting ? "جارٍ التأكيد..." : retailMode ? "إنهاء البيع" : "تأكيد الطلب"}
               </button>
             )}
           </div>
 
           <p className="hint">
-            {appendToOrderId
+            {retailMode
+              ? "تأكيد البيع يحفظ الفاتورة مباشرة ويطبع الإيصال تلقائياً."
+              : appendToOrderId
               ? "يمكنك إضافة عناصر جديدة أو إنهاء الطاولة لإخراج الفاتورة النهائية."
               : "تأكيد الطلب يحفظه على الطاولة ويحوّلها لمشغولة."}
           </p>
         </div>
       </div>
 
-      <FinishOrderModal
-        open={finishModalOpen}
-        activeTableOrder={activeTableOrder}
-        finishAdjustments={finishAdjustments}
-        finishPreview={finishPreview}
-        discountRate={discountRate}
-        finishSubmitting={finishSubmitting}
-        onClose={() => setFinishModalOpen(false)}
-        onChangeDeduction={changeFinishDeduction}
-        onFinish={() => void finishOrder()}
-      />
+      {!retailMode ? (
+        <FinishOrderModal
+          open={finishModalOpen}
+          activeTableOrder={activeTableOrder}
+          finishAdjustments={finishAdjustments}
+          finishPreview={finishPreview}
+          discountRate={discountRate}
+          finishSubmitting={finishSubmitting}
+          onClose={() => setFinishModalOpen(false)}
+          onChangeDeduction={changeFinishDeduction}
+          onFinish={() => void finishOrder()}
+        />
+      ) : null}
 
       <CustomOrderModal
         open={customOrderModalOpen}
         products={products}
         materials={materials}
+        showRecipeOptions={!retailMode}
         onClose={() => setCustomOrderModalOpen(false)}
         onAdd={addCustomOrder}
       />

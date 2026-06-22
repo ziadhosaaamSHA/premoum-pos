@@ -11,8 +11,10 @@ import {
   toPaymentMethod,
 } from "@/server/pos/mappers";
 import { fetchBranding } from "@/server/settings/branding";
+import { isRetailMode } from "@/lib/businessMode";
 import { orderCreateSchema } from "@/server/validation/schemas";
 import { buildReceiptSnapshot } from "@/lib/receipt";
+import { fetchSystemSettings } from "@/server/system/setup";
 
 const orderInclude = {
   items: {
@@ -77,7 +79,8 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request, { anyPermission: ["orders:manage", "pos:use"] });
     const payload = await readJson(request, orderCreateSchema);
-    const branding = await fetchBranding(db);
+    const [branding, systemSettings] = await Promise.all([fetchBranding(db), fetchSystemSettings(db)]);
+    const retailMode = isRetailMode(systemSettings.businessMode);
 
     const orderType = toOrderType(payload.type);
     const payment = toPaymentMethod(payload.payment);
@@ -87,7 +90,7 @@ export async function POST(request: NextRequest) {
     const taxRate = orderType === OrderType.DINE_IN ? 0 : requestedTaxRate;
     const appendToOrderId = payload.appendToOrderId || null;
 
-    if (orderType === OrderType.DELIVERY && !payload.zoneId) {
+    if (orderType === OrderType.DELIVERY && !payload.zoneId && !retailMode) {
       throw new HttpError(400, "zone_required", "Delivery order requires a zone");
     }
     if (orderType !== OrderType.DELIVERY && payload.zoneId) {
@@ -141,7 +144,7 @@ export async function POST(request: NextRequest) {
             quantity: item.quantity,
             unitPrice,
             totalPrice: unitPrice * item.quantity,
-            recipeItems: product.recipeItems,
+            recipeItems: retailMode ? [] : product.recipeItems,
             explicitMaterials: [] as Array<{ materialId: string; quantity: number }>,
             name: product.name,
           };
@@ -154,7 +157,7 @@ export async function POST(request: NextRequest) {
           quantity: item.quantity,
           unitPrice,
           totalPrice: unitPrice * item.quantity,
-          recipeItems: recipeProduct?.recipeItems || [],
+          recipeItems: retailMode ? [] : recipeProduct?.recipeItems || [],
           explicitMaterials: item.materials || [],
           name: item.name?.trim() || "طلب خاص",
         };
@@ -347,7 +350,7 @@ export async function POST(request: NextRequest) {
         data: {
           code,
           type: orderType,
-          status: OrderStatus.PREPARING,
+          status: retailMode ? OrderStatus.DELIVERED : OrderStatus.PREPARING,
           customerName: payload.customerName.trim(),
           zoneId,
           driverId: payload.driverId || null,

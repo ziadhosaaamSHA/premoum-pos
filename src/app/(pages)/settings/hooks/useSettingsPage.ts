@@ -4,6 +4,7 @@ import { useToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
 import { Branding, useBranding } from "@/context/BrandingContext";
 import { ApiError, apiRequest } from "@/lib/api";
+import type { BusinessMode } from "@/lib/businessMode";
 import { FACTORY_RESET_PHRASE } from "@/lib/constants";
 import {
   BrandingForm,
@@ -49,7 +50,7 @@ export function useSettingsPage() {
   const [taxes, setTaxes] = useState<TaxRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [settingsTab, setSettingsTab] = useState<"profile" | "branding" | "access">("profile");
+  const [settingsTab, setSettingsTab] = useState<"profile" | "branding" | "operations" | "access">("profile");
   const [activeTab, setActiveTab] = useState<"roles" | "users">("roles");
 
   const [roleSearch, setRoleSearch] = useState("");
@@ -126,6 +127,8 @@ export function useSettingsPage() {
     sidebarTextColor: "#f6f3ef",
   });
   const [savingBranding, setSavingBranding] = useState(false);
+  const [businessMode, setBusinessMode] = useState<BusinessMode>("cafe_restaurant");
+  const [savingBusinessMode, setSavingBusinessMode] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ password: "" });
   const [savingPassword, setSavingPassword] = useState(false);
 
@@ -168,7 +171,14 @@ export function useSettingsPage() {
     async (showLoading = false) => {
       if (showLoading) setLoading(true);
       try {
-        const [permissionsPayload, rolesPayload, usersPayload, invitesPayload, taxesPayload] = await Promise.all([
+        const [
+          permissionsPayload,
+          rolesPayload,
+          usersPayload,
+          invitesPayload,
+          taxesPayload,
+          businessModePayload,
+        ] = await Promise.all([
           canManageRoles || canManageUsers || canInviteUsers
             ? apiRequest<{ permissions: Permission[] }>("/api/admin/permissions")
             : Promise.resolve({ permissions: [] }),
@@ -184,6 +194,9 @@ export function useSettingsPage() {
           canViewSettings
             ? apiRequest<{ taxes: TaxRow[] }>("/api/settings/taxes")
             : Promise.resolve({ taxes: [] }),
+          canViewSettings
+            ? apiRequest<{ businessMode: BusinessMode }>("/api/settings/business-mode")
+            : Promise.resolve({ businessMode: "cafe_restaurant" as BusinessMode }),
         ]);
 
         setPermissions(permissionsPayload.permissions);
@@ -191,6 +204,7 @@ export function useSettingsPage() {
         setUsers(usersPayload.users);
         setInvites(invitesPayload.invites);
         setTaxes(taxesPayload.taxes || []);
+        setBusinessMode(businessModePayload.businessMode || "cafe_restaurant");
       } catch (error) {
         handleError(error, "تعذر تحميل بيانات الإعدادات");
       } finally {
@@ -474,6 +488,25 @@ export function useSettingsPage() {
       ...DEFAULT_BRAND_COLORS,
     }));
     pushToast("تمت استعادة ألوان الهوية الافتراضية، اضغط حفظ لتطبيقها", "info");
+  };
+
+  const handleBusinessModeSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canManageSettings) return;
+    setSavingBusinessMode(true);
+    try {
+      const payload = await apiRequest<{ businessMode: BusinessMode }>("/api/settings/business-mode", {
+        method: "PATCH",
+        body: JSON.stringify({ businessMode }),
+      });
+      setBusinessMode(payload.businessMode);
+      window.dispatchEvent(new CustomEvent<BusinessMode>("business-mode-updated", { detail: payload.businessMode }));
+      pushToast("تم تحديث نوع النشاط", "success");
+    } catch (error) {
+      handleError(error, "تعذر تحديث نوع النشاط");
+    } finally {
+      setSavingBusinessMode(false);
+    }
   };
 
   const openFactoryReset = () => {
@@ -783,6 +816,7 @@ export function useSettingsPage() {
     () => [
       { id: "profile" as const, label: "الملف الشخصي", icon: "bx bx-user" },
       { id: "branding" as const, label: "الهوية البصرية", icon: "bx bx-palette", hidden: !canViewSettings },
+      { id: "operations" as const, label: "النظام", icon: "bx bx-slider-alt", hidden: !canViewSettings },
       {
         id: "access" as const,
         label: "الصلاحيات والأدوار",
@@ -867,6 +901,9 @@ export function useSettingsPage() {
     brandingForm,
     setBrandingForm,
     savingBranding,
+    businessMode,
+    setBusinessMode,
+    savingBusinessMode,
     passwordForm,
     setPasswordForm,
     savingPassword,
@@ -902,6 +939,7 @@ export function useSettingsPage() {
     togglePermission,
     handleProfileSubmit,
     handleBrandingSubmit,
+    handleBusinessModeSubmit,
     handleLogoUpload,
     handleAvatarUpload,
     handlePasswordChange,

@@ -367,6 +367,7 @@ model BrandingSettings {
 model SystemSettings {
   id               String   @id
   setupCompletedAt DateTime?
+  businessMode     String   @default("cafe_restaurant")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

@@ -83,8 +83,8 @@ export default function SuppliersTable({
             });
             await loadSuppliers();
           },
-          confirmDeleteText: "سيتم حذف المورد أو تعطيله تلقائياً إذا كان مرتبطاً بمشتريات. متابعة؟",
-          deleteMessage: "تم تنفيذ إجراء حذف المورد",
+          confirmDeleteText: "سيتم حذف المورد نهائياً، وسيتم حذف مشترياته المرتبطة إن وجدت. متابعة؟",
+          deleteMessage: "تم حذف المورد نهائياً",
         })}
       />
     </TableSection>

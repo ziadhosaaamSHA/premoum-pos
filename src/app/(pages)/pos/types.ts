@@ -1,4 +1,5 @@
 import { ReceiptSnapshot } from "@/lib/receipt";
+import type { BusinessMode } from "@/lib/businessMode";
 
 export type PosCategory = {
   id: string;
@@ -54,6 +55,8 @@ export type PosTax = {
   isDefault: boolean;
   isActive: boolean;
 };
+
+export type { BusinessMode };
 
 export type ProductCartItem = {
   id: string;

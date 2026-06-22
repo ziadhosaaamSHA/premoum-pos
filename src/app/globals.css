@@ -802,6 +802,11 @@
     transform: translateY(-1px);
   }
 
+  .retail-mode-pill {
+    @apply inline-flex items-center gap-2 px-4 py-2 border border-border bg-card text-sm font-semibold text-ink;
+    border-radius: var(--radius-control);
+  }
+
   .order-types {
     @apply flex items-center gap-2;
   }

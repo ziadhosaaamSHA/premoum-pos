@@ -7,12 +7,14 @@ import {
   mapMaterialReference,
   mapProduct,
 } from "@/server/products/mappers";
+import { fetchSystemSettings } from "@/server/system/setup";
 
 export async function GET(request: NextRequest) {
   try {
     await requireAuth(request, { allPermissions: ["products:view"] });
 
-    const [categories, materials, products] = await Promise.all([
+    const [settings, categories, materials, products] = await Promise.all([
+      fetchSystemSettings(db),
       db.category.findMany({
         orderBy: { name: "asc" },
         include: {
@@ -54,6 +56,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     return jsonOk({
+      businessMode: settings.businessMode,
       categories: categories.map((item) => mapCategory(item)),
       materials: materials.map((item) => mapMaterialReference(item)),
       products: products.map((item) => mapProduct(item)),

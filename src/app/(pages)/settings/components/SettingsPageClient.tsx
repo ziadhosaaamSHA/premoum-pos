@@ -80,6 +80,9 @@ export default function SettingsPageClient() {
     brandingForm,
     setBrandingForm,
     savingBranding,
+    businessMode,
+    setBusinessMode,
+    savingBusinessMode,
     passwordForm,
     setPasswordForm,
     savingPassword,
@@ -112,6 +115,7 @@ export default function SettingsPageClient() {
     togglePermission,
     handleProfileSubmit,
     handleBrandingSubmit,
+    handleBusinessModeSubmit,
     handleLogoUpload,
     handleAvatarUpload,
     handlePasswordChange,
@@ -900,6 +904,52 @@ export default function SettingsPageClient() {
             </div>
           </form>
           <p className="section-hint">يتم تطبيق الألوان مباشرة على النظام بعد الحفظ.</p>
+        </div>
+      )}
+
+      {settingsTab === "operations" && canViewSettings && (
+        <div className="card wide">
+          <div className="section-header-actions no-tip">
+            <div>
+              <h2>نوع النشاط</h2>
+              <p className="hint">يحدد شكل الكاشير والميزات التشغيلية الظاهرة في النظام.</p>
+            </div>
+          </div>
+
+          <form className="form" onSubmit={handleBusinessModeSubmit}>
+            <div className="radio-group">
+              <label className="radio-card">
+                <input
+                  type="radio"
+                  name="businessMode"
+                  checked={businessMode === "cafe_restaurant"}
+                  onChange={() => setBusinessMode("cafe_restaurant")}
+                  disabled={savingBusinessMode || !canManageSettings}
+                />
+                <div>
+                  <strong>كافيه / مطعم</strong>
+                  <span>يعرض الطاولات، الطلبات النشطة، الوصفات، وخصم مكونات الوصفة عند البيع.</span>
+                </div>
+              </label>
+              <label className="radio-card">
+                <input
+                  type="radio"
+                  name="businessMode"
+                  checked={businessMode === "retail"}
+                  onChange={() => setBusinessMode("retail")}
+                  disabled={savingBusinessMode || !canManageSettings}
+                />
+                <div>
+                  <strong>بيع تجزئة</strong>
+                  <span>كاشير مباشر بدون طاولات أو وصفات، والطلب ينتهي بمجرد تأكيد البيع.</span>
+                </div>
+              </label>
+            </div>
+
+            <button className="primary" type="submit" disabled={savingBusinessMode || !canManageSettings}>
+              {savingBusinessMode ? "جارٍ الحفظ..." : "حفظ نوع النشاط"}
+            </button>
+          </form>
         </div>
       )}
 

@@ -14,11 +14,12 @@ type Props = {
   open: boolean;
   products: PosProduct[];
   materials: PosMaterial[];
+  showRecipeOptions?: boolean;
   onClose: () => void;
   onAdd: (item: Omit<CustomCartItem, "id" | "type" | "qty">) => boolean;
 };
 
-export default function CustomOrderModal({ open, products, materials, onClose, onAdd }: Props) {
+export default function CustomOrderModal({ open, products, materials, showRecipeOptions = true, onClose, onAdd }: Props) {
   const [name, setName] = useState("");
   const [unitPrice, setUnitPrice] = useState(0);
   const [recipeProductId, setRecipeProductId] = useState("");
@@ -51,7 +52,7 @@ export default function CustomOrderModal({ open, products, materials, onClose, o
     const added = onAdd({
       name,
       unitPrice,
-      recipeProductId: recipeProductId || null,
+      recipeProductId: showRecipeOptions ? recipeProductId || null : null,
       materials: materialRows
         .filter((row) => row.materialId && row.quantity > 0)
         .map((row) => ({ materialId: row.materialId, quantity: row.quantity })),
@@ -90,22 +91,26 @@ export default function CustomOrderModal({ open, products, materials, onClose, o
               />
             </label>
 
-            <label>
-              خصم مكونات وصفة
-              <select value={recipeProductId} onChange={(event) => setRecipeProductId(event.target.value)}>
-                <option value="">بدون وصفة</option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {showRecipeOptions ? (
+              <>
+                <label>
+                  خصم مكونات وصفة
+                  <select value={recipeProductId} onChange={(event) => setRecipeProductId(event.target.value)}>
+                    <option value="">بدون وصفة</option>
+                    {products.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-            {recipeProduct ? (
-              <div className="custom-order-recipe-note">
-                سيتم خصم مكونات وصفة {recipeProduct.name} لكل وحدة من هذا الطلب.
-              </div>
+                {recipeProduct ? (
+                  <div className="custom-order-recipe-note">
+                    سيتم خصم مكونات وصفة {recipeProduct.name} لكل وحدة من هذا الطلب.
+                  </div>
+                ) : null}
+              </>
             ) : null}
 
             <div className="custom-order-materials">

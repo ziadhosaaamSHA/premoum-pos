@@ -16,11 +16,13 @@ type ProductsTabsProps = {
 };
 
 export default function ProductsTabs({ state }: ProductsTabsProps) {
+  const visibleTabs = state.retailMode ? productTabs.filter((tab) => tab.value !== "recipes") : productTabs;
+
   return (
     <>
-      <Tabs value={state.activeTab} items={productTabs} onChange={state.setActiveTab} />
+      <Tabs value={state.activeTab} items={visibleTabs} onChange={state.setActiveTab} />
       {state.activeTab === "products" ? <ProductsTable {...state} /> : null}
-      {state.activeTab === "recipes" ? <RecipesTable {...state} /> : null}
+      {!state.retailMode && state.activeTab === "recipes" ? <RecipesTable {...state} /> : null}
       {state.activeTab === "categories" ? <CategoriesTable {...state} /> : null}
     </>
   );

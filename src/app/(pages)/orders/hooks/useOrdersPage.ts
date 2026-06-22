@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useBranding } from "@/context/BrandingContext";
 import { useToast } from "@/context/ToastContext";
 import { ApiError, apiRequest } from "@/lib/api";
+import { isRetailMode, type BusinessMode } from "@/lib/businessMode";
 import { buildReceiptSnapshot } from "@/lib/receipt";
 import { OrderRow, OrdersTab, OrderStatusUi, TableForm, TableRow } from "../types";
 
@@ -16,6 +17,7 @@ export function useOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [tables, setTables] = useState<TableRow[]>([]);
+  const [businessMode, setBusinessMode] = useState<BusinessMode>("cafe_restaurant");
 
   const [activeTab, setActiveTab] = useState<OrdersTab>("tables");
   const [filterQuery, setFilterQuery] = useState("");
@@ -39,6 +41,7 @@ export function useOrdersPage() {
     status: "empty",
     orderId: "",
   });
+  const retailMode = isRetailMode(businessMode);
 
   const handleError = useCallback(
     (error: unknown, fallback: string) => {
@@ -55,11 +58,18 @@ export function useOrdersPage() {
     async (showLoading = false) => {
       if (showLoading) setLoading(true);
       try {
+        const setupPayload = await apiRequest<{
+          setup: { isComplete: boolean; hasOwner: boolean; businessMode: BusinessMode };
+        }>("/api/system/setup");
+        const nextBusinessMode = setupPayload.setup.businessMode || "cafe_restaurant";
+        const nextRetailMode = isRetailMode(nextBusinessMode);
+
         const [ordersPayload, tablesPayload] = await Promise.all([
           apiRequest<{ orders: OrderRow[] }>("/api/orders"),
-          apiRequest<{ tables: TableRow[] }>("/api/tables"),
+          nextRetailMode ? Promise.resolve({ tables: [] }) : apiRequest<{ tables: TableRow[] }>("/api/tables"),
         ]);
 
+        setBusinessMode(nextBusinessMode);
         setOrders(ordersPayload.orders);
         setTables(tablesPayload.tables);
       } catch (error) {
@@ -74,6 +84,12 @@ export function useOrdersPage() {
   useEffect(() => {
     void loadData(true);
   }, [loadData]);
+
+  useEffect(() => {
+    if (retailMode && activeTab === "tables") {
+      setActiveTab("current");
+    }
+  }, [activeTab, retailMode]);
 
   const filteredOrders = useMemo(() => {
     const q = filterQuery.trim().toLowerCase();
@@ -90,6 +106,7 @@ export function useOrdersPage() {
   }, [filterQuery, orders, statusFilter]);
 
   const filteredTables = useMemo(() => {
+    if (retailMode) return [];
     const q = tableSearch.trim().toLowerCase();
     if (!q) return tables;
     return tables.filter((table) => {
@@ -99,7 +116,7 @@ export function useOrdersPage() {
         table.id.toLowerCase().includes(q)
       );
     });
-  }, [tableSearch, tables]);
+  }, [retailMode, tableSearch, tables]);
 
   const currentOrders = filteredOrders.filter(
     (order) => order.status !== "delivered" && order.status !== "cancelled"
@@ -294,6 +311,7 @@ export function useOrdersPage() {
 
   return {
     activeTab,
+    businessMode,
     currentOrders,
     filterQuery,
     filteredOrders,
@@ -311,6 +329,7 @@ export function useOrdersPage() {
     orderDeleteId,
     receiptOrder,
     receiptSnapshot,
+    retailMode,
     router,
     selectedOrder,
     selectedTable,

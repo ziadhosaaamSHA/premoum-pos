@@ -4,10 +4,15 @@ import { db } from "@/server/db";
 import { requireAuth } from "@/server/auth/guards";
 import { ACTIVE_ORDER_STATUSES, fromZoneStatus, mapTable } from "@/server/pos/mappers";
 import { jsonError, jsonOk } from "@/server/http";
+import { isRetailMode } from "@/lib/businessMode";
+import { fetchSystemSettings } from "@/server/system/setup";
 
 export async function GET(request: NextRequest) {
   try {
     await requireAuth(request, { anyPermission: ["pos:use", "orders:view", "orders:manage"] });
+
+    const settings = await fetchSystemSettings(db);
+    const retailMode = isRetailMode(settings.businessMode);
 
     const [categories, products, materials, zones, tables, taxes] = await Promise.all([
       db.category.findMany({
@@ -93,7 +98,7 @@ export async function GET(request: NextRequest) {
       products: products.map((product) => {
         const recipeItems = product.recipeItems || [];
         let maxQty: number | null = null;
-        if (recipeItems.length > 0) {
+        if (!retailMode && recipeItems.length > 0) {
           let available = Infinity;
           for (const recipe of recipeItems) {
             const qty = Number(recipe.quantity || 0);
@@ -125,6 +130,7 @@ export async function GET(request: NextRequest) {
         unit: material.unit,
         stock: Number(material.stock),
       })),
+      businessMode: settings.businessMode,
       zones: zones.map((zone) => ({
         id: zone.id,
         name: zone.name,

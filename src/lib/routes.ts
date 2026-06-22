@@ -1,3 +1,5 @@
+import type { BusinessMode } from "@/lib/businessMode";
+
 export type NavItem = {
   id: string;
   href: string;
@@ -5,12 +7,13 @@ export type NavItem = {
   label: string;
   subtitle: string;
   permission: string;
+  hiddenInModes?: BusinessMode[];
 };
 
 export const navItems: NavItem[] = [
   { id: "dashboard", href: "/dashboard", icon: "bx bx-grid-alt", label: "لوحة التحكم", subtitle: "ملخص اليوم التشغيلي للنظام", permission: "dashboard:view" },
   { id: "pos", href: "/pos", icon: "bx bx-cart-alt", label: "الكاشير", subtitle: "إدارة الطلبات السريعة ونقاط البيع", permission: "pos:use" },
-  { id: "orders", href: "/orders", icon: "bx bx-table", label: "الطلبيات", subtitle: "متابعة حالة الطلبات وسجلها", permission: "orders:view" },
+  { id: "orders", href: "/orders", icon: "bx bx-table", label: "الطلبيات", subtitle: "متابعة حالة الطلبات وسجلها", permission: "orders:view", hiddenInModes: ["retail"] },
   { id: "sales", href: "/sales", icon: "bx bx-receipt", label: "المبيعات", subtitle: "الفواتير والتحليلات اليومية", permission: "sales:view" },
   { id: "inventory", href: "/inventory", icon: "bx bx-box", label: "المخزون", subtitle: "مواد خام، مشتريات، والهدر", permission: "inventory:view" },
   { id: "products", href: "/products", icon: "bx bx-package", label: "المنتجات", subtitle: "إدارة المنتجات والوصفات", permission: "products:view" },

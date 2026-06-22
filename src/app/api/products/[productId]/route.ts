@@ -4,6 +4,8 @@ import { requireAuth } from "@/server/auth/guards";
 import { HttpError, jsonError, jsonOk, readJson } from "@/server/http";
 import { mapProduct } from "@/server/products/mappers";
 import { productUpdateSchema } from "@/server/validation/schemas";
+import { isRetailMode } from "@/lib/businessMode";
+import { fetchSystemSettings } from "@/server/system/setup";
 
 const productInclude = {
   category: {
@@ -54,6 +56,8 @@ export async function PATCH(
     await requireAuth(request, { allPermissions: ["products:manage"] });
     const { productId } = await context.params;
     const payload = await readJson(request, productUpdateSchema);
+    const settings = await fetchSystemSettings(db);
+    const recipeInput = isRetailMode(settings.businessMode) ? undefined : payload.recipe;
 
     const current = await db.product.findUnique({
       where: { id: productId },
@@ -83,8 +87,8 @@ export async function PATCH(
       }
     }
 
-    if (payload.recipe) {
-      const materialIds = Array.from(new Set(payload.recipe.map((item) => item.materialId)));
+    if (recipeInput) {
+      const materialIds = Array.from(new Set(recipeInput.map((item) => item.materialId)));
       if (materialIds.length) {
         const materials = await db.material.findMany({
           where: { id: { in: materialIds } },
@@ -108,11 +112,11 @@ export async function PATCH(
         },
       });
 
-      if (payload.recipe) {
+      if (recipeInput) {
         await tx.recipeItem.deleteMany({ where: { productId: current.id } });
-        if (payload.recipe.length) {
+        if (recipeInput.length) {
           await tx.recipeItem.createMany({
-            data: payload.recipe.map((item) => ({
+            data: recipeInput.map((item) => ({
               productId: current.id,
               materialId: item.materialId,
               quantity: item.quantity,

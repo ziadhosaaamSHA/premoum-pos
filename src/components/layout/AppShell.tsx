@@ -10,6 +10,7 @@ import ToastHost from "@/components/ui/ToastHost";
 import { useAuth } from "@/context/AuthContext";
 import { useBranding } from "@/context/BrandingContext";
 import { apiRequest } from "@/lib/api";
+import type { BusinessMode } from "@/lib/businessMode";
 import { getRequiredPermission, navItems } from "@/lib/routes";
 import useLocalStorageBoolean from "@/lib/useLocalStorageBoolean";
 import useMediaQuery from "@/lib/useMediaQuery";
@@ -23,15 +24,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isCompact = useMediaQuery("(max-width: 1100px)");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [storedCollapsed, setStoredCollapsed] = useLocalStorageBoolean("sidebarCollapsed", false);
+  const [businessMode, setBusinessMode] = useState<BusinessMode>("cafe_restaurant");
 
   const canManageSettings = hasPermission("settings:manage");
   const requiredPermission = getRequiredPermission(pathname);
   const hasRoutePermission = !requiredPermission || hasPermission(requiredPermission);
 
   const fallbackRoute = useMemo(() => {
-    const firstAllowed = navItems.find((item) => hasPermission(item.permission));
+    const firstAllowed = navItems.find(
+      (item) => hasPermission(item.permission) && !item.hiddenInModes?.includes(businessMode)
+    );
     return firstAllowed?.href || "/dashboard";
-  }, [hasPermission]);
+  }, [businessMode, hasPermission]);
 
   const sidebarCollapsed = !isMobile && storedCollapsed;
   const sidebarOpen = isMobile && mobileOpen;
@@ -45,10 +49,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     void (async () => {
       try {
-        const payload = await apiRequest<{ setup: { isComplete: boolean; hasOwner: boolean } }>(
+        const payload = await apiRequest<{ setup: { isComplete: boolean; hasOwner: boolean; businessMode: BusinessMode } }>(
           "/api/system/setup"
         );
         if (!active) return;
+        setBusinessMode(payload.setup.businessMode || "cafe_restaurant");
         if (!payload.setup.hasOwner) {
           setSetupStatus("first-launch");
           return;
@@ -63,6 +68,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       active = false;
     };
   }, [loading, authenticated]);
+
+  useEffect(() => {
+    const handleBusinessModeUpdated = (event: Event) => {
+      const nextMode = (event as CustomEvent<BusinessMode>).detail;
+      if (nextMode === "retail" || nextMode === "cafe_restaurant") {
+        setBusinessMode(nextMode);
+      }
+    };
+
+    window.addEventListener("business-mode-updated", handleBusinessModeUpdated);
+    return () => window.removeEventListener("business-mode-updated", handleBusinessModeUpdated);
+  }, []);
 
   useEffect(() => {
     if (loading || setupStatus === "loading") return;
@@ -136,6 +153,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar
         collapsed={sidebarCollapsed}
         mobileOpen={sidebarOpen}
+        businessMode={businessMode}
         onToggleCollapse={toggleCollapse}
         onCloseMobile={() => setMobileOpen(false)}
       />
