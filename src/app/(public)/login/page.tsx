@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useBranding } from "@/context/BrandingContext";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh } = useAuth();
@@ -182,5 +182,22 @@ export default function LoginPage() {
         </form>
       ) : null}
     </section>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <section className="auth-card">
+          <div className="auth-brand">
+            <h1>Premium POS</h1>
+            <p>جارٍ تحميل صفحة تسجيل الدخول...</p>
+          </div>
+        </section>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }
