@@ -4,16 +4,25 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { ApiError, apiRequest } from "@/lib/api";
+import { isRetailMode, type BusinessMode } from "@/lib/businessMode";
 import { todayISO } from "@/lib/format";
-import { SaleRow } from "../types";
+import { RetailPaymentPlanRow, RetailReturnExchangeRow, SaleRow } from "../types";
+
+type SalesTab = "invoices" | "returns" | "payment_plans";
 
 export function useSalesPage() {
   const { pushToast } = useToast();
   const { hasPermission, user } = useAuth();
 
   const [loading, setLoading] = useState(true);
+  const [businessMode, setBusinessMode] = useState<BusinessMode>("cafe_restaurant");
+  const [activeTab, setActiveTab] = useState<SalesTab>("invoices");
   const [sales, setSales] = useState<SaleRow[]>([]);
+  const [returnExchanges, setReturnExchanges] = useState<RetailReturnExchangeRow[]>([]);
+  const [paymentPlans, setPaymentPlans] = useState<RetailPaymentPlanRow[]>([]);
   const [searchSales, setSearchSales] = useState("");
+  const [returnSearch, setReturnSearch] = useState("");
+  const [paymentPlanSearch, setPaymentPlanSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -27,8 +36,29 @@ export function useSalesPage() {
   const [saleForm, setSaleForm] = useState({
     date: todayISO(),
     customer: "",
+    customerPhone: "",
     total: 0,
     itemsText: "",
+  });
+  const [returnForm, setReturnForm] = useState({
+    invoiceNo: "",
+    customerPhone: "",
+    customerName: "",
+    type: "return" as "return" | "exchange",
+    reason: "",
+    refundAmount: 0,
+    exchangeAmount: 0,
+    notes: "",
+  });
+  const [paymentPlanForm, setPaymentPlanForm] = useState({
+    invoiceNo: "",
+    customerPhone: "",
+    customerName: "",
+    totalAmount: 0,
+    downPayment: 0,
+    installmentCount: 3,
+    firstDueDate: "",
+    notes: "",
   });
 
   const canCreateSales = hasPermission("sales:manage");
@@ -38,6 +68,7 @@ export function useSalesPage() {
   );
   const canDeleteSales = isOwnerOrAdmin;
   const canApproveSales = hasPermission("sales:manage") || hasPermission("sales:approve");
+  const retailMode = isRetailMode(businessMode);
 
   const handleError = useCallback(
     (error: unknown, fallback: string) => {
@@ -54,8 +85,25 @@ export function useSalesPage() {
     async (showLoading = false) => {
       if (showLoading) setLoading(true);
       try {
-        const data = await apiRequest<{ sales: SaleRow[] }>("/api/sales");
+        const [data, setup] = await Promise.all([
+          apiRequest<{ sales: SaleRow[] }>("/api/sales"),
+          apiRequest<{ setup: { completedAt: string | null; businessMode: BusinessMode } }>("/api/system/setup"),
+        ]);
         setSales(data.sales);
+        const nextBusinessMode = setup.setup.businessMode || "cafe_restaurant";
+        setBusinessMode(nextBusinessMode);
+        if (isRetailMode(nextBusinessMode)) {
+          const [returnData, paymentPlanData] = await Promise.all([
+            apiRequest<{ returns: RetailReturnExchangeRow[] }>("/api/retail/returns"),
+            apiRequest<{ paymentPlans: RetailPaymentPlanRow[] }>("/api/retail/payment-plans"),
+          ]);
+          setReturnExchanges(returnData.returns);
+          setPaymentPlans(paymentPlanData.paymentPlans);
+        } else {
+          setReturnExchanges([]);
+          setPaymentPlans([]);
+          setActiveTab("invoices");
+        }
       } catch (error) {
         handleError(error, "تعذر تحميل المبيعات");
       } finally {
@@ -85,18 +133,70 @@ export function useSalesPage() {
         !q ||
         sale.invoiceNo.toLowerCase().includes(q) ||
         sale.customer.toLowerCase().includes(q) ||
+        (sale.customerPhone || "").toLowerCase().includes(q) ||
         sale.date.toLowerCase().includes(q);
       const matchesStatus = !statusFilter || sale.status === statusFilter;
       return matchesQuery && matchesStatus;
     });
   }, [searchSales, sales, statusFilter]);
 
+  const filteredReturnExchanges = useMemo(() => {
+    const q = returnSearch.trim().toLowerCase();
+    return returnExchanges.filter((entry) => {
+      if (!q) return true;
+      return (
+        entry.code.toLowerCase().includes(q) ||
+        entry.invoiceNo.toLowerCase().includes(q) ||
+        entry.customer.toLowerCase().includes(q) ||
+        (entry.customerPhone || "").toLowerCase().includes(q)
+      );
+    });
+  }, [returnExchanges, returnSearch]);
+
+  const filteredPaymentPlans = useMemo(() => {
+    const q = paymentPlanSearch.trim().toLowerCase();
+    return paymentPlans.filter((entry) => {
+      if (!q) return true;
+      return (
+        entry.invoiceNo.toLowerCase().includes(q) ||
+        entry.customer.toLowerCase().includes(q) ||
+        (entry.customerPhone || "").toLowerCase().includes(q)
+      );
+    });
+  }, [paymentPlans, paymentPlanSearch]);
+
   const selectedSale = selectedSaleId ? sales.find((sale) => sale.id === selectedSaleId) || null : null;
   const receiptSale = receiptSaleId ? sales.find((sale) => sale.id === receiptSaleId) || null : null;
   const deleteTargetSale = deleteSaleId ? sales.find((sale) => sale.id === deleteSaleId) || null : null;
 
   const resetSaleForm = useCallback(() => {
-    setSaleForm({ date: todayISO(), customer: "", total: 0, itemsText: "" });
+    setSaleForm({ date: todayISO(), customer: "", customerPhone: "", total: 0, itemsText: "" });
+  }, []);
+
+  const resetReturnForm = useCallback(() => {
+    setReturnForm({
+      invoiceNo: "",
+      customerPhone: "",
+      customerName: "",
+      type: "return",
+      reason: "",
+      refundAmount: 0,
+      exchangeAmount: 0,
+      notes: "",
+    });
+  }, []);
+
+  const resetPaymentPlanForm = useCallback(() => {
+    setPaymentPlanForm({
+      invoiceNo: "",
+      customerPhone: "",
+      customerName: "",
+      totalAmount: 0,
+      downPayment: 0,
+      installmentCount: 3,
+      firstDueDate: "",
+      notes: "",
+    });
   }, []);
 
   const startEdit = useCallback(
@@ -106,6 +206,7 @@ export function useSalesPage() {
       setSaleForm({
         date: sale.date,
         customer: sale.customer,
+        customerPhone: sale.customerPhone || "",
         total: sale.total,
         itemsText: sale.items.join("، "),
       });
@@ -133,6 +234,7 @@ export function useSalesPage() {
           body: JSON.stringify({
             date: saleForm.date,
             customerName: saleForm.customer,
+            customerPhone: saleForm.customerPhone || null,
             total: saleForm.total,
             status: "draft",
             items: extractItems(),
@@ -163,6 +265,7 @@ export function useSalesPage() {
           body: JSON.stringify({
             date: saleForm.date,
             customerName: saleForm.customer,
+            customerPhone: saleForm.customerPhone || null,
             total: saleForm.total,
             items: extractItems(),
           }),
@@ -178,6 +281,68 @@ export function useSalesPage() {
       }
     },
     [canEditSales, editSaleId, extractItems, fetchSales, handleError, pushToast, resetSaleForm, saleForm]
+  );
+
+  const handleReturnExchangeSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!canCreateSales || !retailMode) return;
+      setSubmitting(true);
+      try {
+        await apiRequest<{ returnExchange: RetailReturnExchangeRow }>("/api/retail/returns", {
+          method: "POST",
+          body: JSON.stringify({
+            invoiceNo: returnForm.invoiceNo || undefined,
+            customerPhone: returnForm.customerPhone || undefined,
+            customerName: returnForm.customerName || undefined,
+            type: returnForm.type,
+            reason: returnForm.reason || null,
+            refundAmount: returnForm.refundAmount,
+            exchangeAmount: returnForm.exchangeAmount,
+            notes: returnForm.notes || null,
+          }),
+        });
+        resetReturnForm();
+        await fetchSales();
+        pushToast("تم تسجيل عملية الإرجاع/الاستبدال", "success");
+      } catch (error) {
+        handleError(error, "تعذر تسجيل عملية الإرجاع/الاستبدال");
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [canCreateSales, fetchSales, handleError, pushToast, resetReturnForm, retailMode, returnForm]
+  );
+
+  const handlePaymentPlanSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!canCreateSales || !retailMode) return;
+      setSubmitting(true);
+      try {
+        await apiRequest<{ paymentPlan: RetailPaymentPlanRow }>("/api/retail/payment-plans", {
+          method: "POST",
+          body: JSON.stringify({
+            invoiceNo: paymentPlanForm.invoiceNo || undefined,
+            customerPhone: paymentPlanForm.customerPhone || undefined,
+            customerName: paymentPlanForm.customerName || undefined,
+            totalAmount: paymentPlanForm.totalAmount || undefined,
+            downPayment: paymentPlanForm.downPayment,
+            installmentCount: paymentPlanForm.installmentCount,
+            firstDueDate: paymentPlanForm.firstDueDate || null,
+            notes: paymentPlanForm.notes || null,
+          }),
+        });
+        resetPaymentPlanForm();
+        await fetchSales();
+        pushToast("تم تسجيل خطة الدفع", "success");
+      } catch (error) {
+        handleError(error, "تعذر تسجيل خطة الدفع");
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [canCreateSales, fetchSales, handleError, paymentPlanForm, pushToast, resetPaymentPlanForm, retailMode]
   );
 
   const approveSale = useCallback(
@@ -257,6 +422,8 @@ export function useSalesPage() {
   return {
     approveSale,
     approveSaleId,
+    activeTab,
+    businessMode,
     canApproveSales,
     canCreateSales,
     canDeleteSales,
@@ -265,15 +432,28 @@ export function useSalesPage() {
     deleteSaleId,
     deleteTargetSale,
     editSaleId,
+    filteredPaymentPlans,
+    filteredReturnExchanges,
     filteredSales,
     handleCreateSubmit,
     handleEditSubmit,
+    handlePaymentPlanSubmit,
+    handleReturnExchangeSubmit,
     loading,
     openCreateModal,
     receiptSale,
     removeSale,
     removeSales,
+    resetPaymentPlanForm,
+    resetReturnForm,
     resetSaleForm,
+    paymentPlanForm,
+    paymentPlans,
+    paymentPlanSearch,
+    retailMode,
+    returnExchanges,
+    returnForm,
+    returnSearch,
     saleForm,
     searchSales,
     selectedSale,
@@ -281,7 +461,12 @@ export function useSalesPage() {
     setCreateOpen,
     setDeleteSaleId,
     setEditSaleId,
+    setActiveTab,
+    setPaymentPlanForm,
+    setPaymentPlanSearch,
     setReceiptSaleId,
+    setReturnForm,
+    setReturnSearch,
     setSaleForm,
     setSearchSales,
     setSelectedSaleId,

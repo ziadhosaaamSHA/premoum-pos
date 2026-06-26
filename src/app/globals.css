@@ -1078,6 +1078,10 @@
     @apply flex items-center justify-between gap-3 bg-card border border-border rounded-xl p-3;
   }
 
+  .cart-item-actions {
+    @apply flex items-center gap-2 shrink-0;
+  }
+
   .cart-item-name {
     @apply font-semibold;
   }
@@ -1120,6 +1124,15 @@
     @apply flex items-center gap-2;
   }
 
+  .gift-toggle {
+    @apply inline-flex h-8 w-8 items-center justify-center border border-border bg-card text-muted transition;
+    border-radius: var(--radius-control);
+  }
+
+  .gift-toggle.active {
+    @apply border-accent bg-accent text-white;
+  }
+
   .qty-btn {
     @apply w-8 h-8 border border-border bg-card;
     border-radius: var(--radius-control);
@@ -1133,6 +1146,11 @@
     @apply flex flex-col gap-4 mb-4;
   }
 
+  .retail-invoice-fields {
+    @apply grid gap-3;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .field {
     @apply flex flex-col gap-2;
   }
@@ -1143,6 +1161,48 @@
 
   .field label {
     @apply text-sm text-muted;
+  }
+
+  .checkbox-line {
+    @apply flex items-center gap-2 text-sm font-semibold text-ink;
+  }
+
+  .checkbox-line input {
+    width: auto;
+  }
+
+  .retail-payment-plan {
+    @apply rounded-lg border border-border bg-bg/60 p-3;
+  }
+
+  .retail-payment-plan-grid {
+    @apply grid gap-3;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .retail-payment-plan-grid label {
+    @apply flex flex-col gap-2 text-xs text-muted;
+  }
+
+  .retail-payment-plan-preview {
+    @apply col-span-full flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm;
+  }
+
+  .retail-section-form {
+    @apply mb-5 rounded-lg border border-border bg-bg/60 p-4;
+  }
+
+  .retail-form-grid {
+    @apply grid gap-3;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .retail-form-grid label {
+    @apply flex flex-col gap-2 text-sm text-muted;
+  }
+
+  .retail-section-submit {
+    @apply mt-3 inline-flex items-center gap-2;
   }
 
   .action-btn.compact {

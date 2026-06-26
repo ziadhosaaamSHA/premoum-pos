@@ -70,6 +70,7 @@ async function upsertApprovedSaleForOrder(
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     totalPrice: item.totalPrice,
+    isGift: item.isGift,
   }));
 
   if (order.sale) {
@@ -82,6 +83,7 @@ async function upsertApprovedSaleForOrder(
       data: {
         date: new Date(),
         customerName: order.customerName,
+        customerPhone: order.customerPhone,
         total,
         status: SaleStatus.PAID,
         items: {
@@ -100,6 +102,7 @@ async function upsertApprovedSaleForOrder(
       orderId: order.id,
       date: new Date(),
       customerName: order.customerName,
+      customerPhone: order.customerPhone,
       total,
       status: SaleStatus.PAID,
       createdById: actorUserId || order.createdById,
@@ -349,6 +352,7 @@ export async function PATCH(
         code: mapped.code,
         createdAt: mapped.createdAt,
         customerName: mapped.customer,
+        customerPhone: mapped.customerPhone,
         orderType: mapped.type,
         payment: mapped.payment,
         brandName: branding.brandName,
@@ -362,6 +366,7 @@ export async function PATCH(
           qty: item.qty,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
+          isGift: item.isGift,
         })),
         discount: mapped.discount,
         taxRate: mapped.taxRate,

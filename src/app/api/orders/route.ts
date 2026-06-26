@@ -32,6 +32,50 @@ const orderInclude = {
   },
 } as const;
 
+type RetailPaymentPlanPayload = {
+  downPayment: number;
+  installmentCount: number;
+  firstDueDate?: string | null;
+  notes?: string | null;
+};
+
+function normalizeDueDate(value?: string | null) {
+  if (!value) return { date: null, label: null };
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new HttpError(400, "invalid_first_due_date", "Invalid first due date");
+  }
+  return {
+    date: parsed,
+    label: parsed.toISOString().slice(0, 10),
+  };
+}
+
+function normalizePaymentPlan(total: number, plan: RetailPaymentPlanPayload) {
+  const downPayment = Number(plan.downPayment || 0);
+  const installmentCount = Number(plan.installmentCount || 0);
+  if (!Number.isFinite(downPayment) || downPayment < 0 || downPayment > total) {
+    throw new HttpError(400, "invalid_down_payment", "Down payment must be between zero and the invoice total");
+  }
+  if (!Number.isInteger(installmentCount) || installmentCount < 1) {
+    throw new HttpError(400, "invalid_installment_count", "Installment count must be at least one");
+  }
+
+  const remainingAmount = Math.max(0, total - downPayment);
+  const installmentAmount = Math.round((remainingAmount / installmentCount) * 100) / 100;
+  const firstDueDate = normalizeDueDate(plan.firstDueDate);
+
+  return {
+    downPayment,
+    remainingAmount,
+    installmentCount,
+    installmentAmount,
+    firstDueDate: firstDueDate.date,
+    firstDueDateLabel: firstDueDate.label,
+    notes: plan.notes?.trim() || null,
+  };
+}
+
 function parseStatusFilter(raw: string | null) {
   if (!raw) return null;
   const value = raw.toLowerCase();
@@ -89,6 +133,14 @@ export async function POST(request: NextRequest) {
     const discount = orderType === OrderType.DINE_IN ? 0 : requestedDiscount;
     const taxRate = orderType === OrderType.DINE_IN ? 0 : requestedTaxRate;
     const appendToOrderId = payload.appendToOrderId || null;
+    const customerPhone = payload.customerPhone?.trim() || null;
+
+    if (retailMode && !customerPhone) {
+      throw new HttpError(400, "customer_phone_required", "Retail invoices require a customer phone or customer number");
+    }
+    if (!retailMode && payload.paymentPlan) {
+      throw new HttpError(400, "payment_plan_retail_only", "Payment plans are only available in retail mode");
+    }
 
     if (orderType === OrderType.DELIVERY && !payload.zoneId && !retailMode) {
       throw new HttpError(400, "zone_required", "Delivery order requires a zone");
@@ -133,12 +185,13 @@ export async function POST(request: NextRequest) {
 
       const productMap = new Map(products.map((product) => [product.id, product]));
       const itemLines = payload.items.map((item) => {
+        const isGift = retailMode && Boolean(item.isGift);
         if (item.productId) {
           const product = productMap.get(item.productId);
           if (!product) {
             throw new HttpError(400, "invalid_product", "Invalid product in cart items");
           }
-          const unitPrice = Number(product.price);
+          const unitPrice = isGift ? 0 : Number(product.price);
           return {
             productId: product.id,
             quantity: item.quantity,
@@ -147,11 +200,12 @@ export async function POST(request: NextRequest) {
             recipeItems: retailMode ? [] : product.recipeItems,
             explicitMaterials: [] as Array<{ materialId: string; quantity: number }>,
             name: product.name,
+            isGift,
           };
         }
 
         const recipeProduct = item.recipeProductId ? productMap.get(item.recipeProductId) : null;
-        const unitPrice = Number(item.unitPrice || 0);
+        const unitPrice = isGift ? 0 : Number(item.unitPrice || 0);
         return {
           productId: null,
           quantity: item.quantity,
@@ -160,6 +214,7 @@ export async function POST(request: NextRequest) {
           recipeItems: retailMode ? [] : recipeProduct?.recipeItems || [],
           explicitMaterials: item.materials || [],
           name: item.name?.trim() || "طلب خاص",
+          isGift,
         };
       });
 
@@ -237,6 +292,7 @@ export async function POST(request: NextRequest) {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             totalPrice: item.totalPrice,
+            isGift: item.isGift,
           })),
         });
 
@@ -275,6 +331,7 @@ export async function POST(request: NextRequest) {
           code: mapped.code,
           createdAt: mapped.createdAt,
           customerName: mapped.customer,
+          customerPhone: mapped.customerPhone,
           orderType: mapped.type,
           payment: mapped.payment,
           brandName: branding.brandName,
@@ -288,6 +345,7 @@ export async function POST(request: NextRequest) {
             qty: item.qty,
             unitPrice: item.unitPrice,
             totalPrice: item.totalPrice,
+            isGift: item.isGift,
           })),
           discount: mapped.discount,
           taxRate: mapped.taxRate,
@@ -352,6 +410,7 @@ export async function POST(request: NextRequest) {
           type: orderType,
           status: retailMode ? OrderStatus.DELIVERED : OrderStatus.PREPARING,
           customerName: payload.customerName.trim(),
+          customerPhone,
           zoneId,
           driverId: payload.driverId || null,
           tableId,
@@ -369,6 +428,7 @@ export async function POST(request: NextRequest) {
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
                 totalPrice: item.totalPrice,
+                isGift: item.isGift,
               })),
             },
           },
@@ -384,10 +444,13 @@ export async function POST(request: NextRequest) {
       }
 
       const mapped = mapOrder(createdOrder);
+      const normalizedPaymentPlan =
+        retailMode && payload.paymentPlan ? normalizePaymentPlan(mapped.total, payload.paymentPlan) : null;
       const receiptSnapshot = buildReceiptSnapshot({
         code: mapped.code,
         createdAt: mapped.createdAt,
         customerName: mapped.customer,
+        customerPhone: mapped.customerPhone,
         orderType: mapped.type,
         payment: mapped.payment,
         brandName: branding.brandName,
@@ -401,6 +464,7 @@ export async function POST(request: NextRequest) {
           qty: item.qty,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
+          isGift: item.isGift,
         })),
         discount: mapped.discount,
         taxRate: mapped.taxRate,
@@ -408,6 +472,15 @@ export async function POST(request: NextRequest) {
         deliveryFee: mapped.deliveryFee,
         total: mapped.total,
         notes: mapped.notes,
+        paymentPlan: normalizedPaymentPlan
+          ? {
+              downPayment: normalizedPaymentPlan.downPayment,
+              remainingAmount: normalizedPaymentPlan.remainingAmount,
+              installmentCount: normalizedPaymentPlan.installmentCount,
+              installmentAmount: normalizedPaymentPlan.installmentAmount,
+              firstDueDate: normalizedPaymentPlan.firstDueDateLabel,
+            }
+          : null,
       });
 
       const updatedOrder = await tx.order.update({
@@ -423,13 +496,15 @@ export async function POST(request: NextRequest) {
           quantity: item.qty,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
+          isGift: item.isGift,
         }));
 
-        await tx.sale.upsert({
+        const sale = await tx.sale.upsert({
           where: { orderId: updatedOrder.id },
           update: {
             date: new Date(),
             customerName: mapped.customer,
+            customerPhone: mapped.customerPhone,
             total: mapped.total,
             status: SaleStatus.PAID,
             createdById: auth.user.id,
@@ -445,6 +520,7 @@ export async function POST(request: NextRequest) {
             orderId: updatedOrder.id,
             date: new Date(),
             customerName: mapped.customer,
+            customerPhone: mapped.customerPhone,
             total: mapped.total,
             status: SaleStatus.PAID,
             createdById: auth.user.id,
@@ -454,7 +530,37 @@ export async function POST(request: NextRequest) {
               },
             },
           },
+          select: {
+            id: true,
+            invoiceNo: true,
+          },
         });
+
+        if (retailMode && normalizedPaymentPlan) {
+          const paymentPlanData = {
+            invoiceNo: sale.invoiceNo,
+            customerName: mapped.customer,
+            customerPhone: mapped.customerPhone,
+            totalAmount: mapped.total,
+            downPayment: normalizedPaymentPlan.downPayment,
+            remainingAmount: normalizedPaymentPlan.remainingAmount,
+            installmentCount: normalizedPaymentPlan.installmentCount,
+            installmentAmount: normalizedPaymentPlan.installmentAmount,
+            firstDueDate: normalizedPaymentPlan.firstDueDate,
+            status: "active",
+            notes: normalizedPaymentPlan.notes,
+            createdById: auth.user.id,
+          };
+
+          await tx.retailPaymentPlan.upsert({
+            where: { saleId: sale.id },
+            update: paymentPlanData,
+            create: {
+              ...paymentPlanData,
+              saleId: sale.id,
+            },
+          });
+        }
       }
 
       return updatedOrder;

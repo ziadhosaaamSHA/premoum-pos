@@ -99,6 +99,7 @@ export const posOrderItemSchema = z.object({
   name: z.string().min(1).max(140).optional(),
   unitPrice: z.number().min(0).max(1_000_000).optional(),
   quantity: z.number().int().min(1).max(999),
+  isGift: z.boolean().optional(),
   recipeProductId: z.string().min(1).max(64).nullable().optional(),
   materials: z
     .array(
@@ -116,6 +117,7 @@ export const posOrderItemSchema = z.object({
 export const orderCreateSchema = z.object({
   type: z.enum(["dine_in", "takeaway", "delivery"]),
   customerName: z.string().min(1).max(120),
+  customerPhone: z.string().min(1).max(40).nullable().optional(),
   zoneId: z.string().min(1).max(64).nullable().optional(),
   driverId: z.string().min(1).max(64).nullable().optional(),
   tableId: z.string().min(1).max(64).nullable().optional(),
@@ -125,6 +127,15 @@ export const orderCreateSchema = z.object({
   payment: z.enum(["cash", "card", "wallet", "mixed"]),
   notes: z.string().max(500).nullable().optional(),
   items: z.array(posOrderItemSchema).min(1).max(200),
+  paymentPlan: z
+    .object({
+      downPayment: z.number().min(0).max(1_000_000).default(0),
+      installmentCount: z.number().int().min(1).max(120),
+      firstDueDate: z.string().min(8).max(32).nullable().optional(),
+      notes: z.string().max(500).nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const orderUpdateSchema = z.object({
@@ -174,6 +185,7 @@ export const taxUpdateSchema = z.object({
 export const salesCreateSchema = z.object({
   date: z.string().min(8).max(32),
   customerName: z.string().min(1).max(120),
+  customerPhone: z.string().min(1).max(40).nullable().optional(),
   total: z.number().min(0).max(1_000_000),
   status: z.enum(["draft", "paid"]).default("draft"),
   items: z.array(z.string().min(1).max(180)).min(1).max(200).default([]),
@@ -182,10 +194,41 @@ export const salesCreateSchema = z.object({
 export const salesUpdateSchema = z.object({
   date: z.string().min(8).max(32).optional(),
   customerName: z.string().min(1).max(120).optional(),
+  customerPhone: z.string().min(1).max(40).nullable().optional(),
   total: z.number().min(0).max(1_000_000).optional(),
   status: z.enum(["draft", "paid"]).optional(),
   items: z.array(z.string().min(1).max(180)).min(1).max(200).optional(),
 });
+
+export const retailReturnExchangeCreateSchema = z
+  .object({
+    invoiceNo: z.string().max(80).optional(),
+    customerName: z.string().max(120).optional(),
+    customerPhone: z.string().max(40).optional(),
+    type: z.enum(["return", "exchange"]),
+    reason: z.string().max(500).nullable().optional(),
+    refundAmount: z.number().min(0).max(1_000_000).default(0),
+    exchangeAmount: z.number().min(0).max(1_000_000).default(0),
+    notes: z.string().max(500).nullable().optional(),
+  })
+  .refine((value) => Boolean(value.invoiceNo?.trim()) || Boolean(value.customerPhone?.trim()), {
+    message: "Return/exchange requires an invoice number or customer number",
+  });
+
+export const retailPaymentPlanCreateSchema = z
+  .object({
+    invoiceNo: z.string().max(80).optional(),
+    customerPhone: z.string().max(40).optional(),
+    customerName: z.string().max(120).optional(),
+    totalAmount: z.number().min(0).max(1_000_000).optional(),
+    downPayment: z.number().min(0).max(1_000_000).default(0),
+    installmentCount: z.number().int().min(1).max(120),
+    firstDueDate: z.string().min(8).max(32).nullable().optional(),
+    notes: z.string().max(500).nullable().optional(),
+  })
+  .refine((value) => Boolean(value.invoiceNo?.trim()) || Boolean(value.customerPhone?.trim()), {
+    message: "Payment plan requires an invoice number or customer number",
+  });
 
 export const materialCreateSchema = z.object({
   name: z.string().min(1).max(120),

@@ -50,6 +50,13 @@ export function usePosPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [lastAddedCartItemId, setLastAddedCartItemId] = useState<string | null>(null);
   const [customOrderModalOpen, setCustomOrderModalOpen] = useState(false);
+  const [retailCustomerName, setRetailCustomerName] = useState("");
+  const [retailCustomerPhone, setRetailCustomerPhone] = useState("");
+  const [paymentPlanEnabled, setPaymentPlanEnabled] = useState(false);
+  const [paymentPlanDownPayment, setPaymentPlanDownPayment] = useState(0);
+  const [paymentPlanInstallmentCount, setPaymentPlanInstallmentCount] = useState(3);
+  const [paymentPlanFirstDueDate, setPaymentPlanFirstDueDate] = useState("");
+  const [paymentPlanNotes, setPaymentPlanNotes] = useState("");
 
   const [busyDrawerOpen, setBusyDrawerOpen] = useState(false);
   const [activeTableOrder, setActiveTableOrder] = useState<PosOrder | null>(null);
@@ -193,6 +200,17 @@ export function usePosPage() {
   }, [retailMode]);
 
   useEffect(() => {
+    if (retailMode) return;
+    setRetailCustomerName("");
+    setRetailCustomerPhone("");
+    setPaymentPlanEnabled(false);
+    setPaymentPlanDownPayment(0);
+    setPaymentPlanInstallmentCount(3);
+    setPaymentPlanFirstDueDate("");
+    setPaymentPlanNotes("");
+  }, [retailMode]);
+
+  useEffect(() => {
     if (retailMode || initialRouteAppliedRef.current || tables.length === 0) return;
 
     const routeTableId = searchParams.get("tableId");
@@ -244,6 +262,7 @@ export function usePosPage() {
   const cartSubtotal = useMemo(
     () =>
       cart.reduce((sum, item) => {
+        if (item.isGift) return sum;
         if (item.type === "custom") return sum + item.unitPrice * item.qty;
         const product = products.find((entry) => entry.id === item.productId);
         return sum + (product?.price || 0) * item.qty;
@@ -266,6 +285,18 @@ export function usePosPage() {
   const taxAmount = taxableBase * (combinedTaxRate / 100);
   const total = taxableBase + deliveryFee + taxAmount;
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
+  const paymentPlanPreview = useMemo(() => {
+    const downPayment = Math.max(0, Number(paymentPlanDownPayment || 0));
+    const installmentCount = Math.max(1, Number(paymentPlanInstallmentCount || 1));
+    const remainingAmount = Math.max(0, total - downPayment);
+    const installmentAmount = Math.round((remainingAmount / installmentCount) * 100) / 100;
+    return {
+      downPayment,
+      remainingAmount,
+      installmentCount,
+      installmentAmount,
+    };
+  }, [paymentPlanDownPayment, paymentPlanInstallmentCount, total]);
   const cartQtyMap = useMemo(
     () =>
       new Map(
@@ -421,20 +452,43 @@ export function usePosPage() {
 
   const validateBeforeSubmit = useCallback(() => {
     if (cart.length === 0) return "السلة فارغة";
+    if (retailMode && !retailCustomerPhone.trim()) return "اكتب رقم العميل أو رقم الهاتف";
+    if (retailMode && paymentPlanEnabled) {
+      if (paymentPlanDownPayment < 0 || paymentPlanDownPayment > total) {
+        return "الدفعة المقدمة يجب أن تكون بين صفر وإجمالي الفاتورة";
+      }
+      if (!Number.isInteger(Number(paymentPlanInstallmentCount)) || paymentPlanInstallmentCount < 1) {
+        return "عدد الأقساط يجب أن يكون 1 أو أكثر";
+      }
+    }
     if (!retailMode && orderType === "delivery" && !zoneId) return "اختر نطاق التوصيل";
     if (!retailMode && orderType === "dine_in" && !tableId) return "اختر طاولة أولاً";
     if (!retailMode && orderType === "dine_in" && selectedTable?.status === "occupied" && !selectedTable.activeOrder) {
       return "الطاولة مشغولة بدون طلب نشط، اربطها بطلب أولاً من صفحة الطلبيات";
     }
     return null;
-  }, [cart.length, orderType, retailMode, selectedTable, tableId, zoneId]);
+  }, [
+    cart.length,
+    orderType,
+    paymentPlanDownPayment,
+    paymentPlanEnabled,
+    paymentPlanInstallmentCount,
+    retailCustomerPhone,
+    retailMode,
+    selectedTable,
+    tableId,
+    total,
+    zoneId,
+  ]);
 
   const submitConfirmContent = useMemo(() => {
     if (retailMode) {
       return {
         title: "تأكيد البيع",
         confirmLabel: "إنهاء البيع",
-        message: `سيتم تسجيل بيع مباشر مدفوع بإجمالي ${money(total)}.`,
+        message: paymentPlanEnabled
+          ? `سيتم تسجيل بيع مباشر بإجمالي ${money(total)} مع تقسيط ${paymentPlanPreview.installmentCount} أقساط.`
+          : `سيتم تسجيل بيع مباشر مدفوع بإجمالي ${money(total)}.`,
       };
     }
 
@@ -471,7 +525,17 @@ export function usePosPage() {
       confirmLabel: "تأكيد الطلب",
       message: `سيتم تأكيد الطلب وإنشاء فاتورة مدفوعة مباشرة بإجمالي ${money(total)}.`,
     };
-  }, [appendToOrderId, cartCount, cartSubtotal, orderType, retailMode, selectedTable, total]);
+  }, [
+    appendToOrderId,
+    cartCount,
+    cartSubtotal,
+    orderType,
+    paymentPlanEnabled,
+    paymentPlanPreview.installmentCount,
+    retailMode,
+    selectedTable,
+    total,
+  ]);
 
   const openSubmitConfirmation = () => {
     const validationError = validateBeforeSubmit();
@@ -521,7 +585,7 @@ export function usePosPage() {
           item.type === "product" && item.productId === productId ? { ...item, qty: item.qty + 1 } : item
         );
       }
-      return [...prev, { id: productId, type: "product", productId, qty: 1 }];
+      return [...prev, { id: productId, type: "product", productId, qty: 1, isGift: false }];
     });
     setLastAddedCartItemId(productId);
   };
@@ -546,6 +610,7 @@ export function usePosPage() {
         type: "custom",
         name,
         qty: 1,
+        isGift: false,
         recipeProductId: retailMode ? null : item.recipeProductId,
       },
     ]);
@@ -576,6 +641,15 @@ export function usePosPage() {
     );
   };
 
+  const toggleGiftItem = (cartItemId: string) => {
+    if (!retailMode) return;
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === cartItemId ? { ...item, isGift: !item.isGift } : item
+      )
+    );
+  };
+
   const clearCart = () => {
     setCart([]);
     setLastAddedCartItemId(null);
@@ -583,6 +657,8 @@ export function usePosPage() {
       setDiscountRate(0);
       setExtraTaxRate(0);
     }
+    setPaymentPlanEnabled(false);
+    setPaymentPlanDownPayment(0);
     pushToast("تم تفريغ السلة", "success");
   };
 
@@ -594,6 +670,13 @@ export function usePosPage() {
     setZoneId("");
     setCart([]);
     setLastAddedCartItemId(null);
+    setRetailCustomerName("");
+    setRetailCustomerPhone("");
+    setPaymentPlanEnabled(false);
+    setPaymentPlanDownPayment(0);
+    setPaymentPlanInstallmentCount(3);
+    setPaymentPlanFirstDueDate("");
+    setPaymentPlanNotes("");
     setDiscountRate(0);
     setExtraTaxRate(0);
     setActiveTableOrder(null);
@@ -694,6 +777,7 @@ export function usePosPage() {
           code: finalized.code,
           createdAt: finalized.createdAt,
           customerName: finalized.customer,
+          customerPhone: finalized.customerPhone,
           orderType: finalized.type,
           payment: finalized.payment,
           brandName: branding.brandName,
@@ -707,6 +791,7 @@ export function usePosPage() {
             qty: item.qty,
             unitPrice: item.unitPrice,
             totalPrice: item.totalPrice,
+            isGift: item.isGift,
           })),
           discount: finalized.discount,
           taxRate: finalized.taxRate,
@@ -754,29 +839,42 @@ export function usePosPage() {
     try {
       const effectiveOrderType: OrderTypeUi = retailMode ? "delivery" : orderType;
       const isDineIn = !retailMode && effectiveOrderType === "dine_in";
+      const retailCustomerPhoneValue = retailCustomerPhone.trim();
+      const retailCustomerNameValue = retailCustomerName.trim() || retailCustomerPhoneValue || "عميل بيع مباشر";
       const payload = {
         type: effectiveOrderType,
         customerName:
           retailMode
-            ? "عميل بيع مباشر"
+            ? retailCustomerNameValue
             : effectiveOrderType === "dine_in"
             ? "عميل صالة"
             : effectiveOrderType === "takeaway"
               ? "عميل تيك أواي"
               : "عميل توصيل",
+        customerPhone: retailMode ? retailCustomerPhoneValue : null,
         zoneId: effectiveOrderType === "delivery" && !retailMode ? zoneId : null,
         tableId: isDineIn ? tableId : null,
         appendToOrderId: isDineIn ? appendToOrderId : null,
         discount: isDineIn ? 0 : discountAmount,
         taxRate: isDineIn ? 0 : combinedTaxRate,
         payment,
+        paymentPlan:
+          retailMode && paymentPlanEnabled
+            ? {
+                downPayment: paymentPlanPreview.downPayment,
+                installmentCount: paymentPlanPreview.installmentCount,
+                firstDueDate: paymentPlanFirstDueDate || null,
+                notes: paymentPlanNotes || null,
+              }
+            : null,
         items: cart.map((item) =>
           item.type === "product"
-            ? { productId: item.productId, quantity: item.qty }
+            ? { productId: item.productId, quantity: item.qty, isGift: Boolean(item.isGift) }
             : {
                 name: item.name,
                 unitPrice: item.unitPrice,
                 quantity: item.qty,
+                isGift: Boolean(item.isGift),
                 recipeProductId: retailMode ? null : item.recipeProductId,
                 materials: item.materials,
               }
@@ -793,20 +891,23 @@ export function usePosPage() {
       if (effectiveOrderType !== "dine_in") {
         const fallbackItems = cart.map((item) => {
           if (item.type === "custom") {
+            const unitPrice = item.isGift ? 0 : item.unitPrice;
             return {
               name: item.name,
               qty: item.qty,
-              unitPrice: item.unitPrice,
-              totalPrice: item.unitPrice * item.qty,
+              unitPrice,
+              totalPrice: unitPrice * item.qty,
+              isGift: Boolean(item.isGift),
             };
           }
           const product = products.find((entry) => entry.id === item.productId);
-          const unitPrice = product?.price || 0;
+          const unitPrice = item.isGift ? 0 : product?.price || 0;
           return {
             name: product?.name || "منتج",
             qty: item.qty,
             unitPrice,
             totalPrice: unitPrice * item.qty,
+            isGift: Boolean(item.isGift),
           };
         });
 
@@ -814,6 +915,7 @@ export function usePosPage() {
           code: result.order.code,
           createdAt: new Date().toISOString(),
           customerName: payload.customerName,
+          customerPhone: payload.customerPhone,
           orderType: effectiveOrderType,
           payment,
           brandName: branding.brandName,
@@ -832,6 +934,16 @@ export function usePosPage() {
           deliveryFee,
           total,
           notes: null,
+          paymentPlan:
+            retailMode && paymentPlanEnabled
+              ? {
+                  downPayment: paymentPlanPreview.downPayment,
+                  remainingAmount: paymentPlanPreview.remainingAmount,
+                  installmentCount: paymentPlanPreview.installmentCount,
+                  installmentAmount: paymentPlanPreview.installmentAmount,
+                  firstDueDate: paymentPlanFirstDueDate || null,
+                }
+              : null,
         });
 
         setReceipt(result.order.receiptSnapshot ?? fallbackReceipt);
@@ -840,6 +952,15 @@ export function usePosPage() {
 
       setCart([]);
       setLastAddedCartItemId(null);
+      if (retailMode) {
+        setRetailCustomerName("");
+        setRetailCustomerPhone("");
+        setPaymentPlanEnabled(false);
+        setPaymentPlanDownPayment(0);
+        setPaymentPlanInstallmentCount(3);
+        setPaymentPlanFirstDueDate("");
+        setPaymentPlanNotes("");
+      }
 
       if (isDineIn) {
         const targetOrderId = isAppending ? appendToOrderId : result.order.id;
@@ -964,9 +1085,25 @@ export function usePosPage() {
     submitting,
     tableId,
     taxAmount,
+    paymentPlanDownPayment,
+    paymentPlanEnabled,
+    paymentPlanFirstDueDate,
+    paymentPlanInstallmentCount,
+    paymentPlanNotes,
+    paymentPlanPreview,
     total,
+    retailCustomerName,
+    retailCustomerPhone,
     undoLastItem,
     unlockOrderPricing,
+    setPaymentPlanDownPayment,
+    setPaymentPlanEnabled,
+    setPaymentPlanFirstDueDate,
+    setPaymentPlanInstallmentCount,
+    setPaymentPlanNotes,
+    setRetailCustomerName,
+    setRetailCustomerPhone,
+    toggleGiftItem,
     zoneId,
   };
 }

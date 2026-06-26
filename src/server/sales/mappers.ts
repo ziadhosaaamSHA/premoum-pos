@@ -25,6 +25,7 @@ type SaleRow = {
   invoiceNo: string;
   date: Date;
   customerName: string;
+  customerPhone: string | null;
   total: unknown;
   status: SaleStatus;
   notes: string | null;
@@ -42,7 +43,17 @@ type SaleRow = {
     quantity: number;
     unitPrice: unknown;
     totalPrice: unknown;
+    isGift: boolean;
   }>;
+  paymentPlan?: {
+    id: string;
+    status: string;
+    downPayment: unknown;
+    remainingAmount: unknown;
+    installmentCount: number;
+    installmentAmount: unknown;
+    firstDueDate: Date | null;
+  } | null;
 };
 
 export function mapSale(row: SaleRow) {
@@ -51,6 +62,7 @@ export function mapSale(row: SaleRow) {
     invoiceNo: row.invoiceNo,
     date: row.date.toISOString().slice(0, 10),
     customer: row.customerName,
+    customerPhone: row.customerPhone,
     total: Number(row.total),
     status: fromSaleStatus(row.status),
     items: row.items.map((item) => item.name),
@@ -60,7 +72,19 @@ export function mapSale(row: SaleRow) {
       qty: item.quantity,
       unitPrice: Number(item.unitPrice),
       totalPrice: Number(item.totalPrice),
+      isGift: item.isGift,
     })),
+    paymentPlan: row.paymentPlan
+      ? {
+          id: row.paymentPlan.id,
+          status: row.paymentPlan.status,
+          downPayment: Number(row.paymentPlan.downPayment),
+          remainingAmount: Number(row.paymentPlan.remainingAmount),
+          installmentCount: row.paymentPlan.installmentCount,
+          installmentAmount: Number(row.paymentPlan.installmentAmount),
+          firstDueDate: row.paymentPlan.firstDueDate?.toISOString().slice(0, 10) || null,
+        }
+      : null,
     notes: row.notes,
     orderId: row.orderId,
     orderCode: row.order?.code || null,

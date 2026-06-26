@@ -97,6 +97,7 @@ type OrderItemRow = {
   quantity: number;
   unitPrice: unknown;
   totalPrice: unknown;
+  isGift: boolean;
   product: { name: string } | null;
 };
 
@@ -106,6 +107,7 @@ type OrderRow = {
   type: OrderType;
   status: OrderStatus;
   customerName: string;
+  customerPhone: string | null;
   zoneId: string | null;
   driverId: string | null;
   tableId: string | null;
@@ -130,6 +132,7 @@ export function mapOrder(row: OrderRow) {
     qty: item.quantity,
     unitPrice: Number(item.unitPrice),
     totalPrice: Number(item.totalPrice),
+    isGift: item.isGift,
   }));
 
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -147,6 +150,7 @@ export function mapOrder(row: OrderRow) {
     type: fromOrderType(row.type),
     status: fromOrderStatus(row.status),
     customer: row.customerName,
+    customerPhone: row.customerPhone,
     zoneId: row.zoneId,
     zoneName: row.zone?.name || null,
     driverId: row.driverId,

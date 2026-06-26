@@ -15,6 +15,7 @@ const saleInclude = {
       quantity: true,
       unitPrice: true,
       totalPrice: true,
+      isGift: true,
     },
   },
   order: {
@@ -22,6 +23,17 @@ const saleInclude = {
       id: true,
       code: true,
       receiptSnapshot: true,
+    },
+  },
+  paymentPlan: {
+    select: {
+      id: true,
+      status: true,
+      downPayment: true,
+      remainingAmount: true,
+      installmentCount: true,
+      installmentAmount: true,
+      firstDueDate: true,
     },
   },
 } as const;
@@ -77,6 +89,7 @@ export async function PATCH(
     const editingFieldsProvided =
       payload.date !== undefined ||
       payload.customerName !== undefined ||
+      payload.customerPhone !== undefined ||
       payload.total !== undefined ||
       payload.items !== undefined;
     const statusOnlyApproval = !editingFieldsProvided && payload.status === "paid";
@@ -128,6 +141,7 @@ export async function PATCH(
         data: {
           date: parsedDate,
           customerName: payload.customerName?.trim(),
+          customerPhone: payload.customerPhone === undefined ? undefined : payload.customerPhone?.trim() || null,
           total: payload.total,
           status: payload.status ? toSaleStatus(payload.status) : undefined,
         },

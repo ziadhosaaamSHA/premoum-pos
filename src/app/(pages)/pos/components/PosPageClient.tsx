@@ -9,7 +9,7 @@ import FinishOrderModal from "./FinishOrderModal";
 import OrderTypeSwitcher from "./OrderTypeSwitcher";
 import ProductGrid from "./ProductGrid";
 import QuickActions from "./QuickActions";
-import { PaymentUi } from "../types";
+import type { PaymentUi } from "../types";
 import { usePosPage } from "../hooks/usePosPage";
 
 export default function PosPageClient() {
@@ -53,10 +53,18 @@ export default function PosPageClient() {
     openSubmitConfirmation,
     orderType,
     payment,
+    paymentPlanDownPayment,
+    paymentPlanEnabled,
+    paymentPlanFirstDueDate,
+    paymentPlanInstallmentCount,
+    paymentPlanNotes,
+    paymentPlanPreview,
     products,
     projectedActiveOrder,
     receipt,
     receiptOpen,
+    retailCustomerName,
+    retailCustomerPhone,
     retailMode,
     search,
     selectedTable,
@@ -68,7 +76,14 @@ export default function PosPageClient() {
     setOrderExtraTaxRate,
     setOrderType,
     setPayment,
+    setPaymentPlanDownPayment,
+    setPaymentPlanEnabled,
+    setPaymentPlanFirstDueDate,
+    setPaymentPlanInstallmentCount,
+    setPaymentPlanNotes,
     setReceiptOpen,
+    setRetailCustomerName,
+    setRetailCustomerPhone,
     setSearch,
     setSubmitConfirmOpen,
     setTableId,
@@ -81,6 +96,7 @@ export default function PosPageClient() {
     tableId,
     taxAmount,
     total,
+    toggleGiftItem,
     undoLastItem,
     unlockOrderPricing,
     zoneId,
@@ -203,18 +219,31 @@ export default function PosPageClient() {
                       <div className="cart-item-info">
                         <div className="cart-item-name">{name}</div>
                         <div className="cart-item-meta">
-                          سعر {money(unitPrice)}
+                          {item.isGift ? "هدية بدون سعر" : `سعر ${money(unitPrice)}`}
                           {item.type === "custom" ? " · طلب خاص" : ""}
                         </div>
                       </div>
-                      <div className="qty-control">
-                        <button className="qty-btn" type="button" onClick={() => changeCartQty(item.id, -1)}>
-                          -
-                        </button>
-                        <span className="qty-value">{item.qty}</span>
-                        <button className="qty-btn" type="button" onClick={() => changeCartQty(item.id, 1)}>
-                          +
-                        </button>
+                      <div className="cart-item-actions">
+                        {retailMode ? (
+                          <button
+                            className={`gift-toggle ${item.isGift ? "active" : ""}`}
+                            type="button"
+                            onClick={() => toggleGiftItem(item.id)}
+                            title="تحديد كهدية"
+                            aria-label="تحديد كهدية"
+                          >
+                            <i className="bx bx-gift"></i>
+                          </button>
+                        ) : null}
+                        <div className="qty-control">
+                          <button className="qty-btn" type="button" onClick={() => changeCartQty(item.id, -1)}>
+                            -
+                          </button>
+                          <span className="qty-value">{item.qty}</span>
+                          <button className="qty-btn" type="button" onClick={() => changeCartQty(item.id, 1)}>
+                            +
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -223,6 +252,96 @@ export default function PosPageClient() {
             </div>
 
             <div className="cart-options">
+              {retailMode ? (
+                <>
+                  <div className="retail-invoice-fields">
+                    <div className="field">
+                      <label>رقم العميل / الهاتف</label>
+                      <input
+                        type="text"
+                        value={retailCustomerPhone}
+                        onChange={(event) => setRetailCustomerPhone(event.target.value)}
+                        placeholder="مثال: 01000000000"
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label>اسم العميل (اختياري)</label>
+                      <input
+                        type="text"
+                        value={retailCustomerName}
+                        onChange={(event) => setRetailCustomerName(event.target.value)}
+                        placeholder="اسم العميل"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="field retail-payment-plan">
+                    <label className="checkbox-line">
+                      <input
+                        type="checkbox"
+                        checked={paymentPlanEnabled}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setPaymentPlanEnabled(checked);
+                          if (checked) setPayment("mixed");
+                        }}
+                      />
+                      تقسيط / خطة دفع
+                    </label>
+                    {paymentPlanEnabled ? (
+                      <div className="retail-payment-plan-grid">
+                        <label>
+                          دفعة مقدمة
+                          <input
+                            type="number"
+                            value={paymentPlanDownPayment}
+                            min={0}
+                            max={total}
+                            step={1}
+                            onChange={(event) => setPaymentPlanDownPayment(Number(event.target.value || 0))}
+                          />
+                        </label>
+                        <label>
+                          عدد الأقساط
+                          <input
+                            type="number"
+                            value={paymentPlanInstallmentCount}
+                            min={1}
+                            max={120}
+                            step={1}
+                            onChange={(event) =>
+                              setPaymentPlanInstallmentCount(Number(event.target.value || 1))
+                            }
+                          />
+                        </label>
+                        <label>
+                          أول استحقاق
+                          <input
+                            type="date"
+                            value={paymentPlanFirstDueDate}
+                            onChange={(event) => setPaymentPlanFirstDueDate(event.target.value)}
+                          />
+                        </label>
+                        <label>
+                          ملاحظات
+                          <input
+                            type="text"
+                            value={paymentPlanNotes}
+                            onChange={(event) => setPaymentPlanNotes(event.target.value)}
+                            placeholder="اختياري"
+                          />
+                        </label>
+                        <div className="retail-payment-plan-preview">
+                          <span>المتبقي {money(paymentPlanPreview.remainingAmount)}</span>
+                          <strong>القسط {money(paymentPlanPreview.installmentAmount)}</strong>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+
               {!retailMode && orderType === "delivery" && (
                 <div className="field">
                   <label>نطاق التوصيل</label>

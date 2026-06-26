@@ -15,6 +15,7 @@ const saleInclude = {
       quantity: true,
       unitPrice: true,
       totalPrice: true,
+      isGift: true,
     },
   },
   order: {
@@ -22,6 +23,17 @@ const saleInclude = {
       id: true,
       code: true,
       receiptSnapshot: true,
+    },
+  },
+  paymentPlan: {
+    select: {
+      id: true,
+      status: true,
+      downPayment: true,
+      remainingAmount: true,
+      installmentCount: true,
+      installmentAmount: true,
+      firstDueDate: true,
     },
   },
 } as const;
@@ -55,6 +67,7 @@ export async function GET(request: NextRequest) {
       return (
         sale.invoiceNo.toLowerCase().includes(search) ||
         sale.customerName.toLowerCase().includes(search) ||
+        (sale.customerPhone || "").toLowerCase().includes(search) ||
         sale.date.toISOString().slice(0, 10).includes(search)
       );
     });
@@ -82,6 +95,7 @@ export async function POST(request: NextRequest) {
         invoiceNo: buildInvoiceNo(),
         date: parsedDate,
         customerName: payload.customerName.trim(),
+        customerPhone: payload.customerPhone?.trim() || null,
         total: payload.total,
         status: toSaleStatus(payload.status),
         createdById: auth.user.id,

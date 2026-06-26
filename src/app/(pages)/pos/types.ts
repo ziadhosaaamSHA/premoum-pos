@@ -63,6 +63,7 @@ export type ProductCartItem = {
   type: "product";
   productId: string;
   qty: number;
+  isGift?: boolean;
 };
 
 export type CustomCartItem = {
@@ -71,6 +72,7 @@ export type CustomCartItem = {
   name: string;
   unitPrice: number;
   qty: number;
+  isGift?: boolean;
   recipeProductId: string | null;
   materials: Array<{
     materialId: string;
@@ -89,6 +91,7 @@ export type PosOrder = {
   type: "dine_in" | "takeaway" | "delivery";
   status: "preparing" | "ready" | "out" | "delivered" | "cancelled";
   customer: string;
+  customerPhone: string | null;
   tableId: string | null;
   tableName: string | null;
   tableNumber: number | null;
@@ -109,6 +112,7 @@ export type PosOrder = {
     qty: number;
     unitPrice: number;
     totalPrice: number;
+    isGift: boolean;
   }>;
 };
 

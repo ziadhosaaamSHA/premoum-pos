@@ -21,6 +21,7 @@ export default function SaleDetailsModal({
           ? [
               { label: "رقم الفاتورة", value: selectedSale.invoiceNo },
               { label: "العميل", value: selectedSale.customer },
+              { label: "رقم العميل", value: selectedSale.customerPhone || "—" },
               { label: "الإجمالي", value: money(selectedSale.total) },
               { label: "الحالة", value: saleStatusLabel(selectedSale.status) },
               ...(selectedSale.orderId
@@ -54,7 +55,7 @@ export default function SaleDetailsModal({
             <div className="list" style={{ marginTop: 12 }}>
               {selectedSale.itemRows.map((item) => (
                 <div key={item.id} className="row-line">
-                  <span>{item.name}</span>
+                  <span>{item.name}{item.isGift ? " · هدية" : ""}</span>
                   <strong>{item.qty}</strong>
                 </div>
               ))}

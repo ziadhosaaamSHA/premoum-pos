@@ -5,6 +5,15 @@ export type ReceiptItem = {
   qty: number;
   unitPrice: number;
   totalPrice: number;
+  isGift?: boolean;
+};
+
+export type ReceiptPaymentPlan = {
+  downPayment: number;
+  remainingAmount: number;
+  installmentCount: number;
+  installmentAmount: number;
+  firstDueDate: string | null;
 };
 
 export type ReceiptSnapshot = {
@@ -15,6 +24,7 @@ export type ReceiptSnapshot = {
   code: string;
   createdAt: string;
   customerName: string;
+  customerPhone?: string | null;
   orderType: "dine_in" | "takeaway" | "delivery";
   payment: "cash" | "card" | "wallet" | "mixed";
   tableName: string | null;
@@ -28,6 +38,7 @@ export type ReceiptSnapshot = {
   deliveryFee: number;
   total: number;
   notes: string | null;
+  paymentPlan?: ReceiptPaymentPlan | null;
 };
 
 export const RECEIPT_BRAND = {
@@ -40,6 +51,7 @@ export type ReceiptSource = {
   code: string;
   createdAt: string | Date;
   customerName: string;
+  customerPhone?: string | null;
   orderType: ReceiptSnapshot["orderType"];
   payment: ReceiptSnapshot["payment"];
   tableName?: string | null;
@@ -52,6 +64,7 @@ export type ReceiptSource = {
   deliveryFee?: number;
   total?: number;
   notes?: string | null;
+  paymentPlan?: ReceiptPaymentPlan | null;
   brandName?: string;
   brandTagline?: string;
   logoUrl?: string | null;
@@ -64,6 +77,7 @@ export function buildReceiptSnapshot(source: ReceiptSource): ReceiptSnapshot {
     qty: Number(item.qty || 0),
     unitPrice: Number(item.unitPrice || 0),
     totalPrice: Number(item.totalPrice || 0),
+    isGift: Boolean(item.isGift),
   }));
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
   const discount = Number(source.discount || 0);
@@ -83,6 +97,7 @@ export function buildReceiptSnapshot(source: ReceiptSource): ReceiptSnapshot {
     code: source.code,
     createdAt,
     customerName: source.customerName,
+    customerPhone: source.customerPhone ?? null,
     orderType: source.orderType,
     payment: source.payment,
     tableName: source.tableName ?? null,
@@ -96,6 +111,7 @@ export function buildReceiptSnapshot(source: ReceiptSource): ReceiptSnapshot {
     deliveryFee,
     total,
     notes: source.notes ?? null,
+    paymentPlan: source.paymentPlan ?? null,
   };
 }
 
@@ -132,6 +148,7 @@ export function buildReceiptPrintHtml(receipt: ReceiptSnapshot) {
   const taxAmount = receipt.taxAmount || 0;
   const infoLines = [
     { label: "العميل", value: receipt.customerName },
+    receipt.customerPhone ? { label: "رقم العميل", value: receipt.customerPhone } : null,
     { label: "نوع الطلب", value: translateStatus(receipt.orderType) },
     { label: "طريقة الدفع", value: paymentLabel(receipt.payment) },
     receipt.tableName
@@ -149,8 +166,8 @@ export function buildReceiptPrintHtml(receipt: ReceiptSnapshot) {
         <tr>
           <td>${item.name}</td>
           <td>${item.qty}</td>
-          <td>${money(item.unitPrice)}</td>
-          <td>${money(item.totalPrice)}</td>
+          <td>${item.isGift ? "هدية" : money(item.unitPrice)}</td>
+          <td>${item.isGift ? "هدية" : money(item.totalPrice)}</td>
         </tr>
       `
     )
@@ -187,6 +204,21 @@ export function buildReceiptPrintHtml(receipt: ReceiptSnapshot) {
 
   const notesBlock = receipt.notes
     ? `<div class="notes">ملاحظات: ${receipt.notes}</div>`
+    : "";
+  const paymentPlanBlock = receipt.paymentPlan
+    ? `
+      <div class="payment-plan">
+        <div class="total-line"><span>دفعة مقدمة</span><strong>${money(receipt.paymentPlan.downPayment)}</strong></div>
+        <div class="total-line"><span>المتبقي</span><strong>${money(receipt.paymentPlan.remainingAmount)}</strong></div>
+        <div class="total-line"><span>عدد الأقساط</span><strong>${receipt.paymentPlan.installmentCount}</strong></div>
+        <div class="total-line"><span>قيمة القسط</span><strong>${money(receipt.paymentPlan.installmentAmount)}</strong></div>
+        ${
+          receipt.paymentPlan.firstDueDate
+            ? `<div class="total-line"><span>أول استحقاق</span><strong>${receipt.paymentPlan.firstDueDate}</strong></div>`
+            : ""
+        }
+      </div>
+    `
     : "";
 
   const logoHtml = receipt.logoUrl
@@ -314,6 +346,12 @@ export function buildReceiptPrintHtml(receipt: ReceiptSnapshot) {
         font-size: 11px;
         color: #6b6b6b;
       }
+      .payment-plan {
+        margin-top: 10px;
+        border-top: 1px dashed #e6e1db;
+        padding-top: 10px;
+        font-size: 12px;
+      }
       .footer {
         margin-top: 12px;
         text-align: center;
@@ -363,6 +401,7 @@ export function buildReceiptPrintHtml(receipt: ReceiptSnapshot) {
       <div class="totals">
         ${totalsRows}
       </div>
+      ${paymentPlanBlock}
       ${notesBlock}
       <div class="footer">${RECEIPT_BRAND.footer}</div>
     </div>

@@ -133,6 +133,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const next = !storedCollapsed;
     setStoredCollapsed(next);
   };
+  const stickyActionsClassName = `sticky-actions ${isMobile ? "justify-between" : "justify-end"}`;
 
   if (loading || setupStatus === "loading" || !authenticated || !hasRoutePermission) {
     return (
@@ -163,7 +164,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       />
       <main className="content">
         {isCompact && (
-          <div className="sticky-actions">
+          <div className={stickyActionsClassName}>
             {isMobile && (
               <button className="icon-btn menu-btn" onClick={() => setMobileOpen(true)} type="button">
                 <i className="bx bx-menu"></i>

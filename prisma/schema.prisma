@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
@@ -88,34 +88,36 @@ enum BackupStatus {
 }
 
 model User {
-  id               String         @id @default(cuid())
-  email            String         @unique
-  fullName         String
-  passwordHash     String?
-  phone            String?
-  avatarUrl        String?
-  status           UserStatus     @default(INVITED)
-  isOwner          Boolean        @default(false)
-  inviteAcceptedAt DateTime?
-  lastLoginAt      DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  createdById      String?
-  createdBy        User?          @relation("UserCreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
-  createdUsers     User[]         @relation("UserCreatedUsers")
-  userRoles        UserRole[]
-  sessions         Session[]
-  invitesCreated   Invite[]       @relation("InviteCreatedBy")
-  invites          Invite[]       @relation("InviteTarget")
-  employee         Employee?
-  shiftLogsCreated ShiftLog[]     @relation("ShiftLogCreatedBy")
-  ordersCreated    Order[]        @relation("OrderCreatedBy")
-  salesCreated     Sale[]         @relation("SaleCreatedBy")
-  expensesCreated  Expense[]      @relation("ExpenseCreatedBy")
-  purchasesCreated Purchase[]     @relation("PurchaseCreatedBy")
-  wastesCreated    Waste[]        @relation("WasteCreatedBy")
-  backupsCreated   BackupRecord[] @relation("BackupCreatedBy")
-  auditLogs        AuditLog[]     @relation("AuditLogActor")
+  id                           String                 @id @default(cuid())
+  email                        String                 @unique
+  fullName                     String
+  passwordHash                 String?
+  phone                        String?
+  avatarUrl                    String?
+  status                       UserStatus             @default(INVITED)
+  isOwner                      Boolean                @default(false)
+  inviteAcceptedAt             DateTime?
+  lastLoginAt                  DateTime?
+  createdAt                    DateTime               @default(now())
+  updatedAt                    DateTime               @updatedAt
+  createdById                  String?
+  createdBy                    User?                  @relation("UserCreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers                 User[]                 @relation("UserCreatedUsers")
+  userRoles                    UserRole[]
+  sessions                     Session[]
+  invitesCreated               Invite[]               @relation("InviteCreatedBy")
+  invites                      Invite[]               @relation("InviteTarget")
+  employee                     Employee?
+  shiftLogsCreated             ShiftLog[]             @relation("ShiftLogCreatedBy")
+  ordersCreated                Order[]                @relation("OrderCreatedBy")
+  salesCreated                 Sale[]                 @relation("SaleCreatedBy")
+  retailReturnExchangesCreated RetailReturnExchange[] @relation("RetailReturnExchangeCreatedBy")
+  retailPaymentPlansCreated    RetailPaymentPlan[]    @relation("RetailPaymentPlanCreatedBy")
+  expensesCreated              Expense[]              @relation("ExpenseCreatedBy")
+  purchasesCreated             Purchase[]             @relation("PurchaseCreatedBy")
+  wastesCreated                Waste[]                @relation("WasteCreatedBy")
+  backupsCreated               BackupRecord[]         @relation("BackupCreatedBy")
+  auditLogs                    AuditLog[]             @relation("AuditLogActor")
 
   @@index([status, createdAt])
 }
@@ -340,36 +342,36 @@ model TaxRate {
 }
 
 model BrandingSettings {
-  id             String   @id
-  brandName      String
-  brandTagline   String?
-  logoUrl        String?
-  primaryColor   String
-  secondaryColor String
-  backgroundColor  String   @default("#f7f3ee")
-  cardColor        String   @default("#ffffff")
-  borderColor      String   @default("#e6e1db")
-  topbarColor      String   @default("#ffffff")
-  topbarTextColor  String   @default("#1b1b1b")
-  tableHeaderColor String   @default("#fbfaf8")
-  tableHeaderTextColor String @default("#6b6b6b")
-  backgroundOpacity Int     @default(100)
-  cardOpacity       Int     @default(100)
-  topbarOpacity     Int     @default(100)
-  tableHeaderOpacity Int    @default(100)
-  sidebarOpacity    Int     @default(100)
-  sidebarColor     String   @default("#1f2a2b")
-  sidebarTextColor String   @default("#f6f3ef")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id
+  brandName            String
+  brandTagline         String?
+  logoUrl              String?
+  primaryColor         String
+  secondaryColor       String
+  backgroundColor      String   @default("#f7f3ee")
+  cardColor            String   @default("#ffffff")
+  borderColor          String   @default("#e6e1db")
+  topbarColor          String   @default("#ffffff")
+  topbarTextColor      String   @default("#1b1b1b")
+  tableHeaderColor     String   @default("#fbfaf8")
+  tableHeaderTextColor String   @default("#6b6b6b")
+  backgroundOpacity    Int      @default(100)
+  cardOpacity          Int      @default(100)
+  topbarOpacity        Int      @default(100)
+  tableHeaderOpacity   Int      @default(100)
+  sidebarOpacity       Int      @default(100)
+  sidebarColor         String   @default("#1f2a2b")
+  sidebarTextColor     String   @default("#f6f3ef")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model SystemSettings {
-  id               String   @id
+  id               String    @id
   setupCompletedAt DateTime?
-  businessMode     String   @default("cafe_restaurant")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  businessMode     String    @default("cafe_restaurant")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model Driver {
@@ -394,29 +396,30 @@ model DiningTable {
 }
 
 model Order {
-  id           String        @id @default(cuid())
-  code         String        @unique
-  type         OrderType
-  status       OrderStatus   @default(PREPARING)
-  customerName String
-  zoneId       String?
-  driverId     String?
-  tableId      String?
-  discount     Decimal       @default(0) @db.Decimal(12, 2)
-  taxRate      Decimal       @default(0) @db.Decimal(5, 2)
-  taxAmount    Decimal       @default(0) @db.Decimal(12, 2)
-  payment      PaymentMethod @default(CASH)
-  notes        String?
+  id              String        @id @default(cuid())
+  code            String        @unique
+  type            OrderType
+  status          OrderStatus   @default(PREPARING)
+  customerName    String
+  customerPhone   String?
+  zoneId          String?
+  driverId        String?
+  tableId         String?
+  discount        Decimal       @default(0) @db.Decimal(12, 2)
+  taxRate         Decimal       @default(0) @db.Decimal(5, 2)
+  taxAmount       Decimal       @default(0) @db.Decimal(12, 2)
+  payment         PaymentMethod @default(CASH)
+  notes           String?
   receiptSnapshot Json?
-  createdById  String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  zone         Zone?         @relation(fields: [zoneId], references: [id], onDelete: SetNull)
-  driver       Driver?       @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  table        DiningTable?  @relation(fields: [tableId], references: [id], onDelete: SetNull)
-  createdBy    User?         @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  items        OrderItem[]
-  sale         Sale?
+  createdById     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  zone            Zone?         @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  driver          Driver?       @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  table           DiningTable?  @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  createdBy       User?         @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items           OrderItem[]
+  sale            Sale?
 
   @@index([status, createdAt])
 }
@@ -429,6 +432,7 @@ model OrderItem {
   quantity   Int
   unitPrice  Decimal  @db.Decimal(12, 2)
   totalPrice Decimal  @db.Decimal(12, 2)
+  isGift     Boolean  @default(false)
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
@@ -436,22 +440,26 @@ model OrderItem {
 }
 
 model Sale {
-  id           String     @id @default(cuid())
-  invoiceNo    String     @unique
-  orderId      String?    @unique
-  date         DateTime   @default(now())
-  customerName String
-  total        Decimal    @db.Decimal(12, 2)
-  status       SaleStatus @default(DRAFT)
-  notes        String?
-  createdById  String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  order        Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  createdBy    User?      @relation("SaleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  items        SaleItem[]
+  id              String                 @id @default(cuid())
+  invoiceNo       String                 @unique
+  orderId         String?                @unique
+  date            DateTime               @default(now())
+  customerName    String
+  customerPhone   String?
+  total           Decimal                @db.Decimal(12, 2)
+  status          SaleStatus             @default(DRAFT)
+  notes           String?
+  createdById     String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  order           Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdBy       User?                  @relation("SaleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  items           SaleItem[]
+  returnExchanges RetailReturnExchange[]
+  paymentPlan     RetailPaymentPlan?
 
   @@index([status, date])
+  @@index([customerPhone])
 }
 
 model SaleItem {
@@ -462,10 +470,60 @@ model SaleItem {
   quantity   Int
   unitPrice  Decimal  @db.Decimal(12, 2)
   totalPrice Decimal  @db.Decimal(12, 2)
+  isGift     Boolean  @default(false)
   sale       Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
   product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([saleId])
+}
+
+model RetailReturnExchange {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  saleId         String?
+  invoiceNo      String
+  customerName   String
+  customerPhone  String?
+  type           String
+  status         String   @default("open")
+  reason         String?
+  refundAmount   Decimal  @default(0) @db.Decimal(12, 2)
+  exchangeAmount Decimal  @default(0) @db.Decimal(12, 2)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  sale           Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  createdBy      User?    @relation("RetailReturnExchangeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([invoiceNo])
+  @@index([customerPhone])
+  @@index([type, status])
+}
+
+model RetailPaymentPlan {
+  id                String    @id @default(cuid())
+  saleId            String?   @unique
+  invoiceNo         String
+  customerName      String
+  customerPhone     String?
+  totalAmount       Decimal   @db.Decimal(12, 2)
+  downPayment       Decimal   @default(0) @db.Decimal(12, 2)
+  remainingAmount   Decimal   @db.Decimal(12, 2)
+  installmentCount  Int
+  installmentAmount Decimal   @db.Decimal(12, 2)
+  firstDueDate      DateTime?
+  status            String    @default("active")
+  notes             String?
+  createdById       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  sale              Sale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  createdBy         User?     @relation("RetailPaymentPlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([invoiceNo])
+  @@index([customerPhone])
+  @@index([status])
 }
 
 model Expense {

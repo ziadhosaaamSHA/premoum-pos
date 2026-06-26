@@ -47,6 +47,11 @@ export default function SalesTable({
     { header: "رقم الفاتورة", cell: (sale) => sale.invoiceNo, exportValue: (sale) => sale.invoiceNo },
     { header: "التاريخ", cell: (sale) => sale.date, exportValue: (sale) => sale.date },
     { header: "العميل", cell: (sale) => sale.customer, exportValue: (sale) => sale.customer },
+    {
+      header: "رقم العميل",
+      cell: (sale) => sale.customerPhone || "—",
+      exportValue: (sale) => sale.customerPhone || "",
+    },
     { header: "الإجمالي", cell: (sale) => money(sale.total), exportValue: (sale) => sale.total },
     {
       header: "الحالة",

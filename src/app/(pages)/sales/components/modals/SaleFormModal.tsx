@@ -35,6 +35,13 @@ function SaleFormFields({
         onChange={(event) => setSaleForm((prev) => ({ ...prev, customer: event.target.value }))}
         required
       />
+      <label>رقم العميل / الهاتف</label>
+      <input
+        type="text"
+        value={saleForm.customerPhone}
+        onChange={(event) => setSaleForm((prev) => ({ ...prev, customerPhone: event.target.value }))}
+        placeholder="اختياري"
+      />
       <label>الإجمالي</label>
       <input
         type="number"

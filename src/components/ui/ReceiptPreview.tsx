@@ -45,6 +45,12 @@ export default function ReceiptPreview({ receipt }: ReceiptPreviewProps) {
           <span>العميل</span>
           <strong>{receipt.customerName}</strong>
         </div>
+        {receipt.customerPhone ? (
+          <div className="receipt-line">
+            <span>رقم العميل</span>
+            <strong>{receipt.customerPhone}</strong>
+          </div>
+        ) : null}
         <div className="receipt-line">
           <span>نوع الطلب</span>
           <strong>{translateStatus(receipt.orderType)}</strong>
@@ -85,8 +91,8 @@ export default function ReceiptPreview({ receipt }: ReceiptPreviewProps) {
             <tr key={`${item.name}-${index}`}>
               <td>{item.name}</td>
               <td>{item.qty}</td>
-              <td>{money(item.unitPrice)}</td>
-              <td>{money(item.totalPrice)}</td>
+              <td>{item.isGift ? "هدية" : money(item.unitPrice)}</td>
+              <td>{item.isGift ? "هدية" : money(item.totalPrice)}</td>
             </tr>
           ))}
         </tbody>
@@ -120,6 +126,33 @@ export default function ReceiptPreview({ receipt }: ReceiptPreviewProps) {
           <strong>{money(receipt.total)}</strong>
         </div>
       </div>
+
+      {receipt.paymentPlan ? (
+        <div className="receipt-totals">
+          <div className="receipt-total-line">
+            <span>دفعة مقدمة</span>
+            <strong>{money(receipt.paymentPlan.downPayment)}</strong>
+          </div>
+          <div className="receipt-total-line">
+            <span>المتبقي</span>
+            <strong>{money(receipt.paymentPlan.remainingAmount)}</strong>
+          </div>
+          <div className="receipt-total-line">
+            <span>عدد الأقساط</span>
+            <strong>{receipt.paymentPlan.installmentCount}</strong>
+          </div>
+          <div className="receipt-total-line">
+            <span>قيمة القسط</span>
+            <strong>{money(receipt.paymentPlan.installmentAmount)}</strong>
+          </div>
+          {receipt.paymentPlan.firstDueDate ? (
+            <div className="receipt-total-line">
+              <span>أول استحقاق</span>
+              <strong>{receipt.paymentPlan.firstDueDate}</strong>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {receipt.notes ? <div className="receipt-notes">ملاحظات: {receipt.notes}</div> : null}
 
